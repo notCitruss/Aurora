@@ -45,6 +45,7 @@ end
 ---------- STATE ----------
 local _rebirths = 0
 local _auraStart = Player:GetAttribute("Aura") or 0
+local _trainPos = nil -- set when player TPs to a zone or enables auto-train
 local S = {rebirths = 0, chests = 0}
 
 ---------- HELPERS ----------
@@ -86,28 +87,20 @@ end
 task.spawn(function()
     local lastChest, lastRebirth, lastTP = 0, 0, 0
     while task.wait(1) do
-        -- Auto-Train: keep player in best affordable zone
+        -- Auto-Train: keep player in their current zone (TP back if drifted)
         if CFG.AutoTrain then
             pcall(function()
                 local hrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
                 local isDead = Player:GetAttribute("Dead")
                 if not hrp or isDead then return end
-                local aura = Player:GetAttribute("Aura") or 0
 
-                -- Find best zone player can handle (selected or lower)
-                local targetZone = nil
-                for i = _selectedZone, 1, -1 do
-                    if aura >= ZONES[i].req then
-                        targetZone = ZONES[i]
-                        break
+                -- Use _trainPos (set when player first enables auto-train or TPs manually)
+                if _trainPos then
+                    local dist = (hrp.Position - _trainPos).Magnitude
+                    if dist > 20 and tick() - lastTP > 5 then
+                        hrp.CFrame = CFrame.new(_trainPos + Vector3.new(0, 3, 0))
+                        lastTP = tick()
                     end
-                end
-                if not targetZone then targetZone = ZONES[1] end -- fallback to Fire Bath
-
-                local dist = (hrp.Position - targetZone.pos).Magnitude
-                if dist > 20 and tick() - lastTP > 5 then
-                    hrp.CFrame = CFrame.new(targetZone.pos + Vector3.new(0, 3, 0))
-                    lastTP = tick()
                 end
             end)
         end
@@ -122,18 +115,12 @@ task.spawn(function()
         if CFG.AutoRebirth and tick() - lastRebirth > 3 then
             local didRebirth = doRebirth()
             lastRebirth = tick()
-            if didRebirth and CFG.AutoTrain then
-                task.wait(2) -- Wait for aura to reset on server
+            if didRebirth and CFG.AutoTrain and _trainPos then
+                task.wait(2)
                 pcall(function()
                     local hrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
                     if not hrp or Player:GetAttribute("Dead") then return end
-                    local aura = Player:GetAttribute("Aura") or 0
-                    -- Find best safe zone after rebirth
-                    local safeZone = ZONES[1]
-                    for i = _selectedZone, 1, -1 do
-                        if aura >= ZONES[i].req then safeZone = ZONES[i]; break end
-                    end
-                    hrp.CFrame = CFrame.new(safeZone.pos + Vector3.new(0, 3, 0))
+                    hrp.CFrame = CFrame.new(_trainPos + Vector3.new(0, 3, 0))
                 end)
             end
         end
@@ -329,7 +316,41 @@ end
 
 ---------- LEFT BUILD ----------
 hdr("Farming")
-tog("Auto-Train (TP to Zone)", "AutoTrain")
+-- Auto-Train captures current position when toggled on
+do
+    local row = Instance.new("Frame", leftP)
+    row.Size = UDim2.fromOffset(LEFT_W - 20, 28); row.Position = UDim2.fromOffset(10, ly)
+    row.BackgroundColor3 = BG_CARD; row.BorderSizePixel = 0
+    Instance.new("UICorner", row).CornerRadius = UDim.new(0, 7)
+    Instance.new("UIStroke", row).Color = PINK_L
+    local l = Instance.new("TextLabel", row)
+    l.Size = UDim2.new(1, -54, 1, 0); l.Position = UDim2.fromOffset(10, 0)
+    l.BackgroundTransparency = 1; l.Text = "Auto-Train (stays here)"; l.TextColor3 = TEXT_D
+    l.TextSize = 10; l.Font = Enum.Font.GothamSemibold; l.TextXAlignment = Enum.TextXAlignment.Left
+    local tb = Instance.new("Frame", row)
+    tb.Size = UDim2.fromOffset(38, 20); tb.Position = UDim2.new(1, -46, 0.5, -10)
+    tb.BorderSizePixel = 0; tb.Active = true
+    Instance.new("UICorner", tb).CornerRadius = UDim.new(1, 0)
+    local c = Instance.new("Frame", tb)
+    c.Size = UDim2.fromOffset(14, 14); c.BorderSizePixel = 0
+    Instance.new("UICorner", c).CornerRadius = UDim.new(1, 0)
+    local function r()
+        tb.BackgroundColor3 = CFG.AutoTrain and PINK or OFF_BG
+        c.Position = CFG.AutoTrain and UDim2.new(1, -17, 0.5, -7) or UDim2.fromOffset(3, 3)
+        c.BackgroundColor3 = CFG.AutoTrain and WHITE or Color3.fromRGB(170, 170, 180)
+    end
+    tb.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            CFG.AutoTrain = not CFG.AutoTrain
+            if CFG.AutoTrain then
+                -- Capture current position as training spot
+                local hrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+                if hrp then _trainPos = hrp.Position end
+            end
+            r()
+        end
+    end); r(); ly += 31
+end
 tog("Auto-Rebirth", "AutoRebirth")
 tog("Auto-Chest", "AutoChest")
 sep()
@@ -340,16 +361,16 @@ sep()
 hdr("Quick Actions")
 btn("\xE2\xAD\x90  Rebirth Now", doRebirth)
 btn("\xF0\x9F\x93\xA6  Claim Chest", claimChest)
-btn("\xF0\x9F\x93\x8D  TP to Best Zone", function()
-    local hrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
-    local aura = Player:GetAttribute("Aura") or 0
-    local zone = ZONES[1]
-    for i = #ZONES, 1, -1 do
-        if aura >= ZONES[i].req then zone = ZONES[i]; break end
-    end
-    hrp.CFrame = CFrame.new(zone.pos + Vector3.new(0, 3, 0))
-end)
+-- TP to zone buttons (each sets _trainPos for auto-train)
+for _, zone in ipairs(ZONES) do
+    btn("\xF0\x9F\x93\x8D  " .. zone.name, function()
+        local hrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            hrp.CFrame = CFrame.new(zone.pos + Vector3.new(0, 3, 0))
+            _trainPos = zone.pos -- auto-train will keep you here
+        end
+    end)
+end
 
 ly += 2
 local cr = Instance.new("TextLabel", leftP)
