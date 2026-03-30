@@ -20,15 +20,27 @@ local CFG = {
 
 ---------- ZONES ----------
 local ZONES = {
-    {name = "Fire Bath", pos = Vector3.new(83, 14, -119), mult = 1},
-    {name = "Dark Lava", pos = Vector3.new(12, 22, -75), mult = 10000},
-    {name = "Frost Heaven", pos = Vector3.new(-228, 18, -51), mult = 100000},
-    {name = "Electra Field", pos = Vector3.new(54, 17, 103), mult = 100000000},
-    {name = "Divine Realm", pos = Vector3.new(65, 45, -301), mult = 10000000000},
-    {name = "Ancient Ruins", pos = Vector3.new(252, 19, -76), mult = 1000000},
-    {name = "Fallen Star", pos = Vector3.new(294, 21, 132), mult = 1000000000000},
+    {name = "Fire Bath", pos = Vector3.new(83, 14, -119), mult = 1, req = 0},
+    {name = "Dark Lava", pos = Vector3.new(12, 22, -75), mult = 10000, req = 10000},
+    {name = "Frost Heaven", pos = Vector3.new(-228, 18, -51), mult = 100000, req = 100000},
+    {name = "Ancient Ruins", pos = Vector3.new(252, 19, -76), mult = 1000000, req = 1000000},
+    {name = "Electra Field", pos = Vector3.new(54, 17, 103), mult = 100000000, req = 100000000},
+    {name = "Divine Realm", pos = Vector3.new(65, 45, -301), mult = 10000000000, req = 10000000000},
+    {name = "Fallen Star", pos = Vector3.new(294, 21, 132), mult = 1000000000000, req = 1000000000000},
 }
 local _selectedZone = #ZONES
+
+-- Learn actual zone requirements from Area Status events
+local Comm_AreaStatus = Comm:FindFirstChild("Area Status")
+if Comm_AreaStatus then
+    Comm_AreaStatus.OnClientEvent:Connect(function(zoneName, requirement)
+        if zoneName and requirement then
+            for _, z in ipairs(ZONES) do
+                if z.name == zoneName then z.req = requirement; break end
+            end
+        end
+    end)
+end
 
 ---------- STATE ----------
 local _rebirths = 0
@@ -74,17 +86,28 @@ end
 task.spawn(function()
     local lastChest, lastRebirth, lastTP = 0, 0, 0
     while task.wait(1) do
-        -- Auto-Train: keep player in selected zone
+        -- Auto-Train: keep player in best affordable zone
         if CFG.AutoTrain then
             pcall(function()
                 local hrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
-                if hrp then
-                    local targetPos = ZONES[_selectedZone].pos
-                    local dist = (hrp.Position - targetPos).Magnitude
-                    if dist > 20 and tick() - lastTP > 5 then
-                        hrp.CFrame = CFrame.new(targetPos + Vector3.new(0, 3, 0))
-                        lastTP = tick()
+                local isDead = Player:GetAttribute("Dead")
+                if not hrp or isDead then return end
+                local aura = Player:GetAttribute("Aura") or 0
+
+                -- Find best zone player can handle (selected or lower)
+                local targetZone = nil
+                for i = _selectedZone, 1, -1 do
+                    if aura >= ZONES[i].req then
+                        targetZone = ZONES[i]
+                        break
                     end
+                end
+                if not targetZone then targetZone = ZONES[1] end -- fallback to Fire Bath
+
+                local dist = (hrp.Position - targetZone.pos).Magnitude
+                if dist > 20 and tick() - lastTP > 5 then
+                    hrp.CFrame = CFrame.new(targetZone.pos + Vector3.new(0, 3, 0))
+                    lastTP = tick()
                 end
             end)
         end
