@@ -20,13 +20,13 @@ local CFG = {
 
 ---------- ZONES ----------
 local ZONES = {
-    {name = "Fire Bath", pos = Vector3.new(83, 14, -119), mult = 1, req = 0},
-    {name = "Dark Lava", pos = Vector3.new(12, 22, -75), mult = 10000, req = 10000},
-    {name = "Frost Heaven", pos = Vector3.new(-228, 18, -51), mult = 100000, req = 100000},
-    {name = "Ancient Ruins", pos = Vector3.new(252, 19, -76), mult = 1000000, req = 1000000},
-    {name = "Electra Field", pos = Vector3.new(54, 17, 103), mult = 100000000, req = 100000000},
-    {name = "Divine Realm", pos = Vector3.new(65, 45, -301), mult = 10000000000, req = 10000000000},
-    {name = "Fallen Star", pos = Vector3.new(294, 21, 132), mult = 1000000000000, req = 1000000000000},
+    {name = "Fire Bath", pos = Vector3.new(110, 8, -133)},
+    {name = "Dark Lava", pos = Vector3.new(40, 10, -133)},
+    {name = "Frost Heaven", pos = Vector3.new(-260, 10, -76)},
+    {name = "Ancient Ruins", pos = Vector3.new(254, 10, -80)},
+    {name = "Electra Field", pos = Vector3.new(65, 8, 107)},
+    {name = "Divine Realm", pos = Vector3.new(62, 8, -309)},
+    {name = "Fallen Star", pos = Vector3.new(300, 20, 129)},
 }
 local _selectedZone = #ZONES
 
