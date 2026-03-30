@@ -337,58 +337,18 @@ hdr("Utility")
 tog("Anti-AFK + Ping", "AntiAFK")
 tog("Speed Boost", "SpeedBoost")
 sep()
-
--- Zone selector (radio buttons)
-hdr("Training Zone")
-for i, zone in ipairs(ZONES) do
-    local zf = Instance.new("Frame", leftP)
-    zf.Size = UDim2.fromOffset(LEFT_W - 20, 22); zf.Position = UDim2.fromOffset(10, ly)
-    zf.BackgroundColor3 = i == _selectedZone and PINK_XL or BG_CARD; zf.BorderSizePixel = 0; zf.Active = true
-    Instance.new("UICorner", zf).CornerRadius = UDim.new(0, 5)
-
-    local dot = Instance.new("Frame", zf)
-    dot.Size = UDim2.fromOffset(8, 8); dot.Position = UDim2.fromOffset(8, 7)
-    dot.BackgroundColor3 = i == _selectedZone and PINK or OFF_BG; dot.BorderSizePixel = 0
-    Instance.new("UICorner", dot).CornerRadius = UDim.new(1, 0)
-
-    local zl = Instance.new("TextLabel", zf)
-    zl.Size = UDim2.fromOffset(140, 22); zl.Position = UDim2.fromOffset(22, 0)
-    zl.BackgroundTransparency = 1; zl.Text = zone.name
-    zl.TextColor3 = i == _selectedZone and PINK_D or TEXT_M
-    zl.TextSize = 9; zl.Font = Enum.Font.GothamSemibold; zl.TextXAlignment = Enum.TextXAlignment.Left
-
-    local ml = Instance.new("TextLabel", zf)
-    ml.Size = UDim2.fromOffset(100, 22); ml.Position = UDim2.fromOffset(LEFT_W - 130, 0)
-    ml.BackgroundTransparency = 1; ml.Text = "x" .. fmt(zone.mult)
-    ml.TextColor3 = TEXT_M; ml.TextSize = 8; ml.Font = Enum.Font.Gotham; ml.TextXAlignment = Enum.TextXAlignment.Right
-
-    zf:SetAttribute("ZoneIdx", i)
-    zf.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            _selectedZone = i
-            for _, child in leftP:GetChildren() do
-                if child:GetAttribute("ZoneIdx") then
-                    local idx = child:GetAttribute("ZoneIdx")
-                    local sel = idx == _selectedZone
-                    child.BackgroundColor3 = sel and PINK_XL or BG_CARD
-                    for _, d in child:GetChildren() do
-                        if d:IsA("Frame") and d.Size == UDim2.fromOffset(8, 8) then d.BackgroundColor3 = sel and PINK or OFF_BG end
-                        if d:IsA("TextLabel") and not d.Text:find("x") then d.TextColor3 = sel and PINK_D or TEXT_M end
-                    end
-                end
-            end
-        end
-    end)
-    ly += 24
-end
-
-sep()
 hdr("Quick Actions")
 btn("\xE2\xAD\x90  Rebirth Now", doRebirth)
 btn("\xF0\x9F\x93\xA6  Claim Chest", claimChest)
-btn("\xF0\x9F\x93\x8D  TP to Zone", function()
+btn("\xF0\x9F\x93\x8D  TP to Best Zone", function()
     local hrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
-    if hrp then hrp.CFrame = CFrame.new(ZONES[_selectedZone].pos + Vector3.new(0, 3, 0)) end
+    if not hrp then return end
+    local aura = Player:GetAttribute("Aura") or 0
+    local zone = ZONES[1]
+    for i = #ZONES, 1, -1 do
+        if aura >= ZONES[i].req then zone = ZONES[i]; break end
+    end
+    hrp.CFrame = CFrame.new(zone.pos + Vector3.new(0, 3, 0))
 end)
 
 ly += 2
