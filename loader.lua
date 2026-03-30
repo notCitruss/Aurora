@@ -17,6 +17,7 @@ local GAMES_BY_ID = {
     [75251063577391]  = "brainrot_heroes_autofarm",   -- Brainrot Heroes
     [77393318863643]  = "aura_ascension",             -- Aura Ascension
     [135668295983945] = "skill_point_legends",        -- +1 Skill Point Legends
+    [138665815682498] = "aim_incremental",            -- Aim Incremental
 }
 
 local GAMES_BY_NAME = {
@@ -27,6 +28,7 @@ local GAMES_BY_NAME = {
     ["brainrot heroes"]       = "brainrot_heroes_autofarm",
     ["skill point legends"]   = "skill_point_legends",
     ["rts"]                   = "rts_godmode",
+    ["aim incremental"]      = "aim_incremental",
 }
 
 local BASE_URL = "https://raw.githubusercontent.com/notCitruss/Aurora/main/scripts/"
