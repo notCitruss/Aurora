@@ -13,6 +13,11 @@ local TweenService = game:GetService("TweenService")
 -- Also map by PlaceName as fallback
 local GAMES_BY_ID = {
     [107095834793267] = "oil_empire_autofarm",       -- Oil Empire
+    [96840410521899]  = "timber_autofarm",            -- Timber!
+    [75251063577391]  = "brainrot_heroes_autofarm",   -- Brainrot Heroes
+    [77393318863643]  = "aura_ascension",             -- Aura Ascension
+    [135668295983945] = "skill_point_legends",        -- +1 Skill Point Legends
+    [81535567274521]  = "bee_garden",                  -- Bee Garden
 }
 
 local GAMES_BY_NAME = {
@@ -21,7 +26,9 @@ local GAMES_BY_NAME = {
     ["aura ascension"]       = "aura_ascension",
     ["+1 skill point legends"]= "skill_point_legends",
     ["bee garden"]           = "bee_garden",
-    ["rts"]                  = "rts_godmode",
+    ["brainrot heroes"]       = "brainrot_heroes_autofarm",
+    ["skill point legends"]   = "skill_point_legends",
+    ["rts"]                   = "rts_godmode",
 }
 
 local BASE_URL = "https://raw.githubusercontent.com/notCitruss/Aurora/main/scripts/"
