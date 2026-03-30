@@ -123,10 +123,17 @@ task.spawn(function()
             local didRebirth = doRebirth()
             lastRebirth = tick()
             if didRebirth and CFG.AutoTrain then
-                task.wait(1)
+                task.wait(2) -- Wait for aura to reset on server
                 pcall(function()
                     local hrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
-                    if hrp then hrp.CFrame = CFrame.new(ZONES[_selectedZone].pos + Vector3.new(0, 3, 0)) end
+                    if not hrp or Player:GetAttribute("Dead") then return end
+                    local aura = Player:GetAttribute("Aura") or 0
+                    -- Find best safe zone after rebirth
+                    local safeZone = ZONES[1]
+                    for i = _selectedZone, 1, -1 do
+                        if aura >= ZONES[i].req then safeZone = ZONES[i]; break end
+                    end
+                    hrp.CFrame = CFrame.new(safeZone.pos + Vector3.new(0, 3, 0))
                 end)
             end
         end
