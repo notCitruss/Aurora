@@ -17,7 +17,6 @@ local GAMES_BY_ID = {
     [75251063577391]  = "brainrot_heroes_autofarm",   -- Brainrot Heroes
     [77393318863643]  = "aura_ascension",             -- Aura Ascension
     [135668295983945] = "skill_point_legends",        -- +1 Skill Point Legends
-    [81535567274521]  = "bee_garden",                  -- Bee Garden
 }
 
 local GAMES_BY_NAME = {
@@ -25,7 +24,6 @@ local GAMES_BY_NAME = {
     ["timber"]               = "timber_autofarm",
     ["aura ascension"]       = "aura_ascension",
     ["+1 skill point legends"]= "skill_point_legends",
-    ["bee garden"]           = "bee_garden",
     ["brainrot heroes"]       = "brainrot_heroes_autofarm",
     ["skill point legends"]   = "skill_point_legends",
     ["rts"]                   = "rts_godmode",
