@@ -194,20 +194,27 @@ local function findNearestNPC()
     return best, bestDist, bestName
 end
 
+local _lastTP = 0
+local TP_COOLDOWN = 1.5 -- seconds between teleports to avoid anti-cheat kicks
+
 local function tpToNPC(npc)
     if not npc then return end
+    if tick() - _lastTP < TP_COOLDOWN then return end
     local hrp  = getHRP()
     local root = npc:FindFirstChild("HumanoidRootPart") or npc:FindFirstChild("Root")
     if hrp and root then
         hrp.CFrame = root.CFrame + Vector3.new(4, 0, 0)
+        _lastTP = tick()
     end
 end
 
 local function teleportToMobArea(mobName: string)
+    if tick() - _lastTP < TP_COOLDOWN then task.wait(TP_COOLDOWN) end
     if NPC_SPAWN_POS[mobName] then
         local hrp = getHRP()
         if hrp then
             hrp.CFrame = CFrame.new(NPC_SPAWN_POS[mobName])
+            _lastTP = tick()
             return
         end
     end
@@ -216,6 +223,7 @@ local function teleportToMobArea(mobName: string)
         pcall(function()
             Interactions.teleportRequest.send(zone)
         end)
+        _lastTP = tick()
     end
 end
 
@@ -261,8 +269,11 @@ local function startFarm()
                                     if nm then
                                         for mob, _ in pairs(CFG.TargetMobs) do
                                             if nm == mob or nm:find(mob) then
-                                                hrp.CFrame = CFrame.new(nHrp.Position + Vector3.new(0, 3, -4), nHrp.Position)
-                                                task.wait(0.3)
+                                                if tick() - _lastTP >= TP_COOLDOWN then
+                                                    hrp.CFrame = CFrame.new(nHrp.Position + Vector3.new(0, 3, -4), nHrp.Position)
+                                                    _lastTP = tick()
+                                                end
+                                                task.wait(1)
                                                 npc = n; npcName = nm
                                                 break
                                             end
@@ -279,7 +290,7 @@ local function startFarm()
                             if _stopFlag then break end
                             _lastNPC = "Searching " .. mob .. "..."
                             teleportToMobArea(mob)
-                            task.wait(2)
+                            task.wait(3) -- longer wait to avoid anti-cheat detection
                             if _stopFlag then break end
                             npc, dist, npcName = findNearestNPC()
                             if npc then break end
@@ -291,7 +302,7 @@ local function startFarm()
                 _lastNPC = npcName or npc.Name
 
                 -- TP to NPC if far
-                if CFG.TeleportToNPC and (dist or 999) > 12 then
+                if CFG.TeleportToNPC and (dist or 999) > 25 then
                     tpToNPC(npc)
                     task.wait(0.15)
                 end
