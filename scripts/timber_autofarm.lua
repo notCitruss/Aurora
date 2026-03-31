@@ -646,8 +646,33 @@ local worldV = rStat("TREES AVAILABLE")
 local fullH = ly + TITLE_H
 main.Size = UDim2.fromOffset(TOTAL_W, fullH)
 
+---------- MINI FLOWER ----------
+local miniBtn = Instance.new("Frame", gui)
+miniBtn.Size = UDim2.fromOffset(44, 44)
+miniBtn.Position = main.Position
+miniBtn.BackgroundColor3 = PINK
+miniBtn.BorderSizePixel = 0
+miniBtn.Visible = false
+miniBtn.Active = true
+Instance.new("UICorner", miniBtn).CornerRadius = UDim.new(1, 0)
+do
+    local mf = Instance.new("Frame", miniBtn)
+    mf.Size = UDim2.fromOffset(30, 30); mf.Position = UDim2.fromOffset(7, 7); mf.BackgroundTransparency = 1
+    for i = 0, 4 do
+        local a = math.rad(i * 72 - 90)
+        local p = Instance.new("Frame", mf)
+        p.Size = UDim2.fromOffset(11, 11)
+        p.Position = UDim2.fromOffset(15 + math.cos(a) * 8 - 5, 15 + math.sin(a) * 8 - 5)
+        p.BackgroundColor3 = Color3.fromRGB(255, 210, 225); p.BackgroundTransparency = 0.1; p.BorderSizePixel = 0; p.Rotation = i * 72
+        Instance.new("UICorner", p).CornerRadius = UDim.new(0, 5)
+    end
+    local mc = Instance.new("Frame", mf)
+    mc.Size = UDim2.fromOffset(6, 6); mc.Position = UDim2.fromOffset(12, 12)
+    mc.BackgroundColor3 = WHITE; mc.BackgroundTransparency = 0.1; mc.BorderSizePixel = 0
+    Instance.new("UICorner", mc).CornerRadius = UDim.new(1, 0)
+end
+
 ---------- MINIMIZE ----------
-local minimized = false
 local mb = Instance.new("Frame", tBar)
 mb.Size = UDim2.fromOffset(28, 28); mb.Position = UDim2.new(1, -36, 0.5, -14)
 mb.BackgroundTransparency = 1; mb.Active = true
@@ -656,13 +681,16 @@ mbLbl.Size = UDim2.new(1, 0, 1, 0); mbLbl.BackgroundTransparency = 1
 mbLbl.Text = "\xE2\x88\x92"; mbLbl.TextColor3 = WHITE; mbLbl.TextSize = 22; mbLbl.Font = Enum.Font.GothamBold
 mb.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        minimized = not minimized
-        TweenService:Create(main, TweenInfo.new(0.2, Enum.EasingStyle.Quart),
-            {Size = minimized and UDim2.fromOffset(TOTAL_W, TITLE_H) or UDim2.fromOffset(TOTAL_W, fullH)}):Play()
-        mbLbl.Text = minimized and "+" or "\xE2\x88\x92"
-        task.delay(minimized and 0 or 0.05, function()
-            leftP.Visible = not minimized; rightScroll.Visible = not minimized; divLine.Visible = not minimized
-        end)
+        miniBtn.Position = main.Position
+        main.Visible = false
+        miniBtn.Visible = true
+    end
+end)
+miniBtn.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        main.Position = miniBtn.Position
+        miniBtn.Visible = false
+        main.Visible = true
     end
 end)
 

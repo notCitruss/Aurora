@@ -1015,26 +1015,53 @@ UserInputService.InputChanged:Connect(function(inp)
     end
 end)
 
+-- ─── MINI FLOWER ─────────────────────────────────────────────────────────────
+
+local miniBtn = Instance.new("Frame", gui)
+miniBtn.Size = UDim2.fromOffset(44, 44)
+miniBtn.Position = main.Position
+miniBtn.BackgroundColor3 = PINK
+miniBtn.BorderSizePixel = 0
+miniBtn.Visible = false
+miniBtn.Active = true
+miniBtn.ZIndex = 50
+Instance.new("UICorner", miniBtn).CornerRadius = UDim.new(1, 0)
+do
+    local mf = frame(miniBtn, Color3.new(), UDim2.fromOffset(30, 30), UDim2.fromOffset(7, 7), 51)
+    mf.BackgroundTransparency = 1
+    for i = 0, 4 do
+        local a = math.rad(i * 72 - 90)
+        local p = frame(mf, Color3.fromRGB(255, 210, 225), UDim2.fromOffset(11, 11),
+            UDim2.fromOffset(15 + math.cos(a) * 8 - 5, 15 + math.sin(a) * 8 - 5), 52)
+        p.BackgroundTransparency = 0.1; p.Rotation = i * 72
+        corner(p, 5)
+    end
+    local mc = frame(mf, WHITE, UDim2.fromOffset(6, 6), UDim2.fromOffset(12, 12), 52)
+    mc.BackgroundTransparency = 0.1
+    corner(mc, 99)
+end
+
 -- ─── MINIMIZE ────────────────────────────────────────────────────────────────
 
-local _minimized = false
 hitbox(minFrame, 24, 24, 15, function()
-    _minimized = not _minimized
-    TweenService:Create(main, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-        Size = UDim2.fromOffset(MAIN_W, _minimized and TITLE_H or MAIN_H)
-    }):Play()
-    minLbl.Text = _minimized and "+" or "\xE2\x80\x94"
-    task.delay(_minimized and 0 or 0.05, function()
-        statusBar.Visible = not _minimized
-        leftScroll.Visible = not _minimized
-        rightScroll.Visible = not _minimized
-    end)
+    miniBtn.Position = main.Position
+    main.Visible = false
+    miniBtn.Visible = true
+end)
+
+miniBtn.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        main.Position = miniBtn.Position
+        miniBtn.Visible = false
+        main.Visible = true
+    end
 end)
 
 -- ─── CLOSE ───────────────────────────────────────────────────────────────────
 
 hitbox(closeFrame, 24, 24, 15, function()
     stopFarm()
+    miniBtn:Destroy()
     gui:Destroy()
 end)
 
