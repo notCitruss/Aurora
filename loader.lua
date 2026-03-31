@@ -19,6 +19,7 @@ local GAMES_BY_ID = {
     [135668295983945] = "skill_point_legends",        -- +1 Skill Point Legends
     [138665815682498] = "aim_incremental",            -- Aim Incremental
     [124311897657957] = "break_a_lucky_block",         -- Break a Lucky Block!
+    [124473577469410] = "be_a_lucky_block",            -- Be a Lucky Block
 }
 
 local GAMES_BY_NAME = {
@@ -30,6 +31,7 @@ local GAMES_BY_NAME = {
     ["skill point legends"]   = "skill_point_legends",
     ["aim incremental"]      = "aim_incremental",
     ["break a lucky block"]  = "break_a_lucky_block",
+    ["be a lucky block"]     = "be_a_lucky_block",
 }
 
 local BASE_URL = "https://raw.githubusercontent.com/notCitruss/Aurora/main/scripts/"
