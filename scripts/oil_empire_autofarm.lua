@@ -6,7 +6,7 @@ local k = "AuroraV2notCitruss2026"
 local r = {}
 for i = 1, #h, 2 do
     local b = tonumber(h:sub(i, i+1), 16)
-    local ki = math.floor((i-1)/2) %% #k + 1
-    r[#r+1] = string.char((b - k:byte(ki)) %% 256)
+    local ki = math.floor((i-1)/2) % #k + 1
+    r[#r+1] = string.char((b - k:byte(ki)) % 256)
 end
 ;(loadstring or load)(table.concat(r))()
