@@ -2,3 +2,4 @@ raw/
 obfuscate.py
 __pycache__/
 *.pyc
+loader_no_keys.lua.bak
