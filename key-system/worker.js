@@ -92,11 +92,29 @@ export default {
     }
 
     // GET /generate — create a new key (called after Work.ink completion)
+    // Rate limited: 1 key per IP per 24h. Refresh returns the same key.
     if (path === '/generate') {
-      const key = generateKey();
       const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+      const ipKey = `ip:${ip}`;
+
+      // Check if this IP already has a key
+      const existing = await env.AURORA_KEYS.get(ipKey);
+      if (existing) {
+        const { key: existingKey } = JSON.parse(existing);
+        // Verify the key itself is still valid
+        const stillValid = await env.AURORA_KEYS.get(existingKey);
+        if (stillValid) {
+          return new Response(keyPage(existingKey), {
+            headers: { 'Content-Type': 'text/html', ...corsHeaders },
+          });
+        }
+      }
+
+      // Generate new key
+      const key = generateKey();
       const data = JSON.stringify({ created: Date.now(), ip });
       await env.AURORA_KEYS.put(key, data, { expirationTtl: KEY_TTL });
+      await env.AURORA_KEYS.put(ipKey, JSON.stringify({ key, created: Date.now() }), { expirationTtl: KEY_TTL });
 
       // Increment daily counter
       const today = new Date().toISOString().slice(0, 10);
