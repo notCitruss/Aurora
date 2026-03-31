@@ -27,7 +27,6 @@ local GAMES_BY_NAME = {
     ["+1 skill point legends"]= "skill_point_legends",
     ["brainrot heroes"]       = "brainrot_heroes_autofarm",
     ["skill point legends"]   = "skill_point_legends",
-    ["rts"]                   = "rts_godmode",
     ["aim incremental"]      = "aim_incremental",
 }
 
