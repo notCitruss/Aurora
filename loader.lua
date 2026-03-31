@@ -20,6 +20,7 @@ local GAMES_BY_ID = {
     [138665815682498] = "aim_incremental",            -- Aim Incremental
     [124311897657957] = "break_a_lucky_block",         -- Break a Lucky Block!
     [124473577469410] = "be_a_lucky_block",            -- Be a Lucky Block
+    [77595602575472]  = "zombie_game",                -- Zombie Game
 }
 
 local GAMES_BY_NAME = {
@@ -32,6 +33,7 @@ local GAMES_BY_NAME = {
     ["aim incremental"]      = "aim_incremental",
     ["break a lucky block"]  = "break_a_lucky_block",
     ["be a lucky block"]     = "be_a_lucky_block",
+    ["zombie"]               = "zombie_game",
 }
 
 local BASE_URL = "https://raw.githubusercontent.com/notCitruss/Aurora/main/scripts/"
