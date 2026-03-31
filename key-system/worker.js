@@ -132,10 +132,30 @@ export default {
     }
 
     // GET /validate?key=AURORA-XXXX-XXXX-XXXX — check if key is valid
+    // Rate limited: 10 attempts per IP per hour
     if (path === '/validate') {
       const key = url.searchParams.get('key');
       if (!key) {
         return new Response(JSON.stringify({ valid: false, error: 'No key provided' }), {
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        });
+      }
+
+      // Rate limit validation attempts
+      const valIp = request.headers.get('CF-Connecting-IP') || 'unknown';
+      const rateLimitKey = `ratelimit:validate:${valIp}`;
+      const attempts = parseInt(await env.AURORA_KEYS.get(rateLimitKey) || '0');
+      if (attempts >= 10) {
+        return new Response(JSON.stringify({ valid: false, error: 'Too many attempts. Try again later.' }), {
+          status: 429,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        });
+      }
+      await env.AURORA_KEYS.put(rateLimitKey, String(attempts + 1), { expirationTtl: 3600 });
+
+      // Format check — must match AURORA-XXXX-XXXX-XXXX-XXXX
+      if (!/^AURORA-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(key)) {
+        return new Response(JSON.stringify({ valid: false }), {
           headers: { 'Content-Type': 'application/json', ...corsHeaders },
         });
       }
