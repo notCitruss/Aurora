@@ -231,7 +231,7 @@ else
 
     verBtn.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            local key = inputBox.Text:gsub("%s+", ""):upper()
+            local key = inputBox.Text:gsub("%s+", "")
             if #key < 10 then
                 statusLbl.Text = "Invalid key format"
                 statusLbl.TextColor3 = RED

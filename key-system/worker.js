@@ -33,7 +33,7 @@ async function sendDiscordWebhook(env, key, ip, dailyCount) {
 }
 
 function generateKey() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   const segment = () => Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
   return `AURORA-${segment()}-${segment()}-${segment()}-${segment()}`;
 }
