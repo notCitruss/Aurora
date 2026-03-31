@@ -6,6 +6,31 @@
 // Admin secret stored as Worker secret (env.ADMIN_SECRET)
 // Set via: wrangler secret put ADMIN_SECRET
 const KEY_TTL = 86400; // 24 hours in seconds
+const DAILY_COUNT_KEY = 'stats:daily:';
+
+async function sendDiscordWebhook(env, key, ip, dailyCount) {
+  const webhook = env.DISCORD_WEBHOOK;
+  if (!webhook) return;
+  const now = new Date();
+  await fetch(webhook, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      embeds: [{
+        title: '🌸 New Aurora Key Generated',
+        color: 0xFC6E8E,
+        fields: [
+          { name: 'Key', value: `\`${key}\``, inline: false },
+          { name: 'IP', value: ip, inline: true },
+          { name: 'Keys Today', value: `${dailyCount}`, inline: true },
+          { name: 'Time', value: `<t:${Math.floor(now.getTime() / 1000)}:f>`, inline: true },
+        ],
+        footer: { text: 'Aurora Key System' },
+        timestamp: now.toISOString(),
+      }],
+    }),
+  });
+}
 
 function generateKey() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
@@ -51,7 +76,7 @@ function errorPage(msg) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const path = url.pathname;
 
@@ -69,11 +94,19 @@ export default {
     // GET /generate — create a new key (called after Work.ink completion)
     if (path === '/generate') {
       const key = generateKey();
-      const data = JSON.stringify({
-        created: Date.now(),
-        ip: request.headers.get('CF-Connecting-IP') || 'unknown',
-      });
+      const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+      const data = JSON.stringify({ created: Date.now(), ip });
       await env.AURORA_KEYS.put(key, data, { expirationTtl: KEY_TTL });
+
+      // Increment daily counter
+      const today = new Date().toISOString().slice(0, 10);
+      const countKey = DAILY_COUNT_KEY + today;
+      const prev = parseInt(await env.AURORA_KEYS.get(countKey) || '0');
+      const dailyCount = prev + 1;
+      await env.AURORA_KEYS.put(countKey, String(dailyCount), { expirationTtl: 172800 }); // 48h
+
+      // Discord notification (non-blocking)
+      ctx.waitUntil(sendDiscordWebhook(env, key, ip, dailyCount));
 
       return new Response(keyPage(key), {
         headers: { 'Content-Type': 'text/html', ...corsHeaders },
