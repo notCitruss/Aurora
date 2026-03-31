@@ -560,7 +560,7 @@ end
 
 ---------- MINIMIZE ----------
 local mb = Instance.new("Frame", tBar)
-mb.Size = UDim2.fromOffset(28, 28); mb.Position = UDim2.new(1, -36, 0.5, -14)
+mb.Size = UDim2.fromOffset(28, 28); mb.Position = UDim2.new(1, -68, 0.5, -14)
 mb.BackgroundTransparency = 1; mb.Active = true
 local mbLbl = Instance.new("TextLabel", mb)
 mbLbl.Size = UDim2.new(1, 0, 1, 0); mbLbl.BackgroundTransparency = 1
@@ -577,6 +577,19 @@ miniBtn.InputBegan:Connect(function(input)
         main.Position = miniBtn.Position
         miniBtn.Visible = false
         main.Visible = true
+    end
+end)
+
+---------- CLOSE ----------
+local xb = Instance.new("Frame", tBar)
+xb.Size = UDim2.fromOffset(28, 28); xb.Position = UDim2.new(1, -36, 0.5, -14)
+xb.BackgroundTransparency = 1; xb.Active = true
+local xLbl = Instance.new("TextLabel", xb)
+xLbl.Size = UDim2.new(1, 0, 1, 0); xLbl.BackgroundTransparency = 1
+xLbl.Text = "x"; xLbl.TextColor3 = WHITE; xLbl.TextSize = 18; xLbl.Font = Enum.Font.GothamBold
+xb.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        miniBtn:Destroy(); gui:Destroy()
     end
 end)
 
