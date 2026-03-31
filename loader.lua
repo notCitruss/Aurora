@@ -18,7 +18,7 @@ local GAMES_BY_ID = {
     [77393318863643]  = "aura_ascension",             -- Aura Ascension
     [135668295983945] = "skill_point_legends",        -- +1 Skill Point Legends
     [138665815682498] = "aim_incremental",            -- Aim Incremental
-    [124311897657957] = "brainrot_heroes_autofarm",   -- Break a Lucky Block!
+    [124311897657957] = "break_a_lucky_block",         -- Break a Lucky Block!
 }
 
 local GAMES_BY_NAME = {
@@ -29,7 +29,7 @@ local GAMES_BY_NAME = {
     ["brainrot heroes"]       = "brainrot_heroes_autofarm",
     ["skill point legends"]   = "skill_point_legends",
     ["aim incremental"]      = "aim_incremental",
-    ["break a lucky block"]  = "brainrot_heroes_autofarm",
+    ["break a lucky block"]  = "break_a_lucky_block",
 }
 
 local BASE_URL = "https://raw.githubusercontent.com/notCitruss/Aurora/main/scripts/"
