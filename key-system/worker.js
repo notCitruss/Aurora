@@ -172,6 +172,40 @@ export default {
       });
     }
 
+    // POST /admin/create?secret=XXX — admin-only custom key creation
+    // Optional: ttl (hours, default 24, max 720/30 days), count (default 1, max 50)
+    if (path === '/admin/create') {
+      const secret = url.searchParams.get('secret');
+      if (secret !== env.ADMIN_SECRET) {
+        return new Response('Unauthorized', { status: 401, headers: corsHeaders });
+      }
+
+      const ttlHours = Math.min(Math.max(parseInt(url.searchParams.get('ttl') || '24'), 1), 720);
+      const count = Math.min(Math.max(parseInt(url.searchParams.get('count') || '1'), 1), 50);
+      const ttlSeconds = ttlHours * 3600;
+      const keys = [];
+
+      for (let i = 0; i < count; i++) {
+        const key = generateKey();
+        await env.AURORA_KEYS.put(key, JSON.stringify({
+          created: Date.now(),
+          ip: 'admin',
+          ttlHours,
+          admin: true,
+        }), { expirationTtl: ttlSeconds });
+        keys.push(key);
+      }
+
+      return new Response(JSON.stringify({
+        created: keys.length,
+        ttlHours,
+        expiresIn: `${ttlHours}h`,
+        keys,
+      }, null, 2), {
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      });
+    }
+
     // GET /stats?secret=XXX — admin stats
     if (path === '/stats') {
       const secret = url.searchParams.get('secret');
