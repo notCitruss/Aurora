@@ -1,17 +1,26 @@
 // Aurora Key System — Cloudflare Worker
 // KV Namespace: AURORA_KEYS
 // Deploy: wrangler deploy
-// Routes: keys.dallaswebstudio.net/*
+// Single-use keys: claimed on first validate, locked to Roblox UserId
 
 // Admin secret stored as Worker secret (env.ADMIN_SECRET)
 // Set via: wrangler secret put ADMIN_SECRET
-const KEY_TTL = 86400; // 24 hours in seconds
+const DEFAULT_DURATION = 86400; // 24h in seconds (time AFTER claiming)
+const SHELF_LIFE = 604800; // 7 days for unclaimed keys from /generate
+const ADMIN_SHELF_LIFE = 2592000; // 30 days for unclaimed admin keys
 const DAILY_COUNT_KEY = 'stats:daily:';
 
-async function sendDiscordWebhook(env, key, ip, dailyCount) {
+async function sendDiscordWebhook(env, key, ip, dailyCount, extra) {
   const webhook = env.DISCORD_WEBHOOK;
   if (!webhook) return;
   const now = new Date();
+  const fields = [
+    { name: 'Key', value: `\`${key}\``, inline: false },
+    { name: 'IP', value: ip, inline: true },
+    { name: 'Keys Today', value: `${dailyCount}`, inline: true },
+    { name: 'Time', value: `<t:${Math.floor(now.getTime() / 1000)}:f>`, inline: true },
+  ];
+  if (extra) fields.push(extra);
   await fetch(webhook, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -19,11 +28,31 @@ async function sendDiscordWebhook(env, key, ip, dailyCount) {
       embeds: [{
         title: '🌸 New Aurora Key Generated',
         color: 0xFC6E8E,
+        fields,
+        footer: { text: 'Aurora Key System' },
+        timestamp: now.toISOString(),
+      }],
+    }),
+  });
+}
+
+async function sendClaimWebhook(env, key, uid, duration) {
+  const webhook = env.DISCORD_WEBHOOK;
+  if (!webhook) return;
+  const now = new Date();
+  const hours = Math.round(duration / 3600);
+  await fetch(webhook, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      embeds: [{
+        title: '🔑 Key Claimed!',
+        color: 0x32BE5A,
         fields: [
           { name: 'Key', value: `\`${key}\``, inline: false },
-          { name: 'IP', value: ip, inline: true },
-          { name: 'Keys Today', value: `${dailyCount}`, inline: true },
-          { name: 'Time', value: `<t:${Math.floor(now.getTime() / 1000)}:f>`, inline: true },
+          { name: 'Roblox User', value: `${uid}`, inline: true },
+          { name: 'Duration', value: `${hours}h`, inline: true },
+          { name: 'Expires', value: `<t:${Math.floor(now.getTime() / 1000) + duration}:R>`, inline: true },
         ],
         footer: { text: 'Aurora Key System' },
         timestamp: now.toISOString(),
@@ -52,7 +81,7 @@ const HTML_STYLES = `
   .expire { color: #FC6E8E; font-size: 13px; margin-top: 8px; }
 `;
 
-function keyPage(key) {
+function keyPage(key, durationHours) {
   return `<!DOCTYPE html><html><head><title>Aurora Key</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>${HTML_STYLES}</style></head><body>
 <div class="card">
   <div class="logo">🌸</div>
@@ -61,7 +90,7 @@ function keyPage(key) {
   <p>Your key has been generated!</p>
   <div class="key-box" onclick="navigator.clipboard.writeText('${key}');document.getElementById('cb').textContent='Copied!'">${key}</div>
   <button class="copy-btn" id="cb" onclick="navigator.clipboard.writeText('${key}');this.textContent='Copied!'">Copy Key</button>
-  <p class="expire">Expires in 24 hours</p>
+  <p class="expire">Valid for ${durationHours}h after first use &bull; Single use only</p>
   <p class="info">Paste this key in the Aurora script UI in-game</p>
 </div></body></html>`;
 }
@@ -80,7 +109,6 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname;
 
-    // CORS headers for in-game HTTP requests
     const corsHeaders = {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, OPTIONS',
@@ -91,69 +119,77 @@ export default {
       return new Response(null, { headers: corsHeaders });
     }
 
-    // GET /generate — create a new key (called after Work.ink completion)
-    // Rate limited: 1 key per IP per 24h. Refresh returns the same key.
+    // GET /generate — create a single-use key (24h after claim)
+    // Rate limited: 1 key per IP per 24h. Refresh returns same key.
     if (path === '/generate') {
       const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
       const ipKey = `ip:${ip}`;
 
-      // Check if this IP already has a key
+      // Check if this IP already has an unclaimed key
       const existing = await env.AURORA_KEYS.get(ipKey);
       if (existing) {
         const { key: existingKey } = JSON.parse(existing);
-        // Verify the key itself is still valid
-        const stillValid = await env.AURORA_KEYS.get(existingKey);
-        if (stillValid) {
-          return new Response(keyPage(existingKey), {
-            headers: { 'Content-Type': 'text/html', ...corsHeaders },
-          });
+        const keyData = await env.AURORA_KEYS.get(existingKey);
+        if (keyData) {
+          const parsed = JSON.parse(keyData);
+          if (parsed.status === 'unclaimed') {
+            return new Response(keyPage(existingKey, parsed.duration / 3600), {
+              headers: { 'Content-Type': 'text/html', ...corsHeaders },
+            });
+          }
         }
       }
 
-      // Generate new key
+      // Generate new single-use key
       const key = generateKey();
-      const data = JSON.stringify({ created: Date.now(), ip });
-      await env.AURORA_KEYS.put(key, data, { expirationTtl: KEY_TTL });
-      await env.AURORA_KEYS.put(ipKey, JSON.stringify({ key, created: Date.now() }), { expirationTtl: KEY_TTL });
+      const data = {
+        created: Date.now(),
+        ip,
+        duration: DEFAULT_DURATION, // 24h after claiming
+        status: 'unclaimed',
+      };
+      // Shelf life: 7 days to be claimed, then auto-expires
+      await env.AURORA_KEYS.put(key, JSON.stringify(data), { expirationTtl: SHELF_LIFE });
+      await env.AURORA_KEYS.put(ipKey, JSON.stringify({ key, created: Date.now() }), { expirationTtl: DEFAULT_DURATION });
 
       // Increment daily counter
       const today = new Date().toISOString().slice(0, 10);
       const countKey = DAILY_COUNT_KEY + today;
       const prev = parseInt(await env.AURORA_KEYS.get(countKey) || '0');
       const dailyCount = prev + 1;
-      await env.AURORA_KEYS.put(countKey, String(dailyCount), { expirationTtl: 172800 }); // 48h
+      await env.AURORA_KEYS.put(countKey, String(dailyCount), { expirationTtl: 172800 });
 
-      // Discord notification (non-blocking)
       ctx.waitUntil(sendDiscordWebhook(env, key, ip, dailyCount));
 
-      return new Response(keyPage(key), {
+      return new Response(keyPage(key, 24), {
         headers: { 'Content-Type': 'text/html', ...corsHeaders },
       });
     }
 
-    // GET /validate?key=AURORA-XXXX-XXXX-XXXX — check if key is valid
-    // Rate limited: 10 attempts per IP per hour
+    // GET /validate?key=AURORA-XXXX&uid=12345 — validate + claim key
+    // First call with a key: claims it for that uid, starts countdown
+    // Subsequent calls: only valid if same uid
     if (path === '/validate') {
       const key = url.searchParams.get('key');
+      const uid = url.searchParams.get('uid');
       if (!key) {
         return new Response(JSON.stringify({ valid: false, error: 'No key provided' }), {
           headers: { 'Content-Type': 'application/json', ...corsHeaders },
         });
       }
 
-      // Rate limit validation attempts
+      // Rate limit
       const valIp = request.headers.get('CF-Connecting-IP') || 'unknown';
       const rateLimitKey = `ratelimit:validate:${valIp}`;
       const attempts = parseInt(await env.AURORA_KEYS.get(rateLimitKey) || '0');
       if (attempts >= 10) {
         return new Response(JSON.stringify({ valid: false, error: 'Too many attempts. Try again later.' }), {
-          status: 429,
-          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+          status: 429, headers: { 'Content-Type': 'application/json', ...corsHeaders },
         });
       }
       await env.AURORA_KEYS.put(rateLimitKey, String(attempts + 1), { expirationTtl: 3600 });
 
-      // Format check — must match AURORA-XXXX-XXXX-XXXX-XXXX
+      // Format check
       if (!/^AURORA-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(key)) {
         return new Response(JSON.stringify({ valid: false }), {
           headers: { 'Content-Type': 'application/json', ...corsHeaders },
@@ -161,28 +197,69 @@ export default {
       }
 
       const stored = await env.AURORA_KEYS.get(key);
-      if (stored) {
-        return new Response(JSON.stringify({ valid: true }), {
+      if (!stored) {
+        return new Response(JSON.stringify({ valid: false }), {
           headers: { 'Content-Type': 'application/json', ...corsHeaders },
         });
       }
 
-      return new Response(JSON.stringify({ valid: false }), {
+      const data = JSON.parse(stored);
+
+      // Key is unclaimed — claim it now
+      if (data.status === 'unclaimed') {
+        if (!uid) {
+          return new Response(JSON.stringify({ valid: false, error: 'uid required to claim key' }), {
+            headers: { 'Content-Type': 'application/json', ...corsHeaders },
+          });
+        }
+        const duration = data.duration || DEFAULT_DURATION;
+        const claimed = {
+          ...data,
+          status: 'claimed',
+          claimedBy: uid,
+          claimedAt: Date.now(),
+          expiresAt: Date.now() + (duration * 1000),
+        };
+        // Rewrite with TTL = duration from NOW (countdown starts)
+        await env.AURORA_KEYS.put(key, JSON.stringify(claimed), { expirationTtl: duration });
+
+        ctx.waitUntil(sendClaimWebhook(env, key, uid, duration));
+
+        return new Response(JSON.stringify({ valid: true, claimed: true, duration }), {
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        });
+      }
+
+      // Key is already claimed
+      if (data.status === 'claimed') {
+        // Same user — still valid
+        if (uid && data.claimedBy === uid) {
+          return new Response(JSON.stringify({ valid: true, claimed: true }), {
+            headers: { 'Content-Type': 'application/json', ...corsHeaders },
+          });
+        }
+        // Different user — rejected
+        return new Response(JSON.stringify({ valid: false, error: 'Key already claimed by another user' }), {
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        });
+      }
+
+      // Legacy keys (no status field) — treat as valid
+      return new Response(JSON.stringify({ valid: true }), {
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
       });
     }
 
-    // POST /admin/create?secret=XXX — admin-only custom key creation
-    // Optional: ttl (hours, default 24, max 720/30 days), count (default 1, max 50)
+    // GET /admin/create?secret=XXX&ttl=HOURS&count=N — admin custom keys
     if (path === '/admin/create') {
       const secret = url.searchParams.get('secret');
       if (secret !== env.ADMIN_SECRET) {
         return new Response('Unauthorized', { status: 401, headers: corsHeaders });
       }
 
-      const ttlHours = Math.min(Math.max(parseInt(url.searchParams.get('ttl') || '24'), 1), 720);
+      const ttlHours = Math.min(Math.max(parseInt(url.searchParams.get('ttl') || '24'), 1), 8760);
       const count = Math.min(Math.max(parseInt(url.searchParams.get('count') || '1'), 1), 50);
-      const ttlSeconds = ttlHours * 3600;
+      const duration = ttlHours * 3600;
       const keys = [];
 
       for (let i = 0; i < count; i++) {
@@ -190,16 +267,18 @@ export default {
         await env.AURORA_KEYS.put(key, JSON.stringify({
           created: Date.now(),
           ip: 'admin',
-          ttlHours,
+          duration,
+          status: 'unclaimed',
           admin: true,
-        }), { expirationTtl: ttlSeconds });
+        }), { expirationTtl: ADMIN_SHELF_LIFE }); // 30 day shelf life
         keys.push(key);
       }
 
       return new Response(JSON.stringify({
         created: keys.length,
-        ttlHours,
-        expiresIn: `${ttlHours}h`,
+        durationHours: ttlHours,
+        shelfLife: '30 days',
+        singleUse: true,
         keys,
       }, null, 2), {
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
@@ -214,10 +293,23 @@ export default {
       }
 
       const list = await env.AURORA_KEYS.list({ limit: 1000 });
-      return new Response(JSON.stringify({
-        activeKeys: list.keys.length,
-        keys: list.keys.map(k => k.name),
-      }), {
+      const keyDetails = [];
+      for (const k of list.keys) {
+        if (k.name.startsWith('AURORA-')) {
+          const val = await env.AURORA_KEYS.get(k.name);
+          if (val) {
+            const d = JSON.parse(val);
+            keyDetails.push({
+              key: k.name,
+              status: d.status || 'legacy',
+              claimedBy: d.claimedBy || null,
+              durationH: Math.round((d.duration || DEFAULT_DURATION) / 3600),
+            });
+          }
+        }
+      }
+
+      return new Response(JSON.stringify({ total: keyDetails.length, keys: keyDetails }, null, 2), {
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
       });
     }

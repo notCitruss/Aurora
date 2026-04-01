@@ -65,11 +65,13 @@ local function saveKey(key)
 end
 
 local function validateKey(key)
-    if not key or #key < 10 then return false end
+    if not key or #key < 10 then return false, nil end
     local ok, result = pcall(function()
-        local resp = game:HttpGet(KEY_API .. "/validate?key=" .. key, true)
+        local uid = tostring(Player.UserId)
+        local resp = game:HttpGet(KEY_API .. "/validate?key=" .. key .. "&uid=" .. uid, true)
         local data = HttpService:JSONDecode(resp)
-        return data and data.valid == true
+        if data and data.valid == true then return true end
+        return false, data and data.error or nil
     end)
     return ok and result
 end
@@ -243,8 +245,13 @@ else
             verLbl.Text = "Checking..."
 
             task.spawn(function()
-                local valid = validateKey(key)
-                if valid then
+                local ok, result = pcall(function()
+                    local uid = tostring(Player.UserId)
+                    local resp = game:HttpGet(KEY_API .. "/validate?key=" .. key .. "&uid=" .. uid, true)
+                    return HttpService:JSONDecode(resp)
+                end)
+
+                if ok and result and result.valid then
                     saveKey(key)
                     statusLbl.Text = "Key valid! Loading..."
                     statusLbl.TextColor3 = GREEN
@@ -253,10 +260,10 @@ else
                     verLbl.TextColor3 = WHITE
                     task.wait(1)
                     gui:Destroy()
-                    -- Continue to script loading (below)
                     savedKey = key
                 else
-                    statusLbl.Text = "Invalid or expired key"
+                    local errMsg = (ok and result and result.error) or "Invalid or expired key"
+                    statusLbl.Text = errMsg
                     statusLbl.TextColor3 = RED
                     verLbl.Text = "Verify Key"
                     verLbl.TextColor3 = PINK_D
