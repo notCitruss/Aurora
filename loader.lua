@@ -18,11 +18,12 @@ local GAMES_BY_ID = {
     [124311897657957] = "break_a_lucky_block",
     [124473577469410] = "be_a_lucky_block",
     [77595602575472]  = "zombie_game",
+    [126763981794917] = "timber_spin_simulator",
 }
 
 local GAMES_BY_NAME = {
     ["oil empire"]           = "oil_empire_autofarm",
-    ["timber"]               = "timber_autofarm",
+    ["timber!"]              = "timber_autofarm",
     ["aura ascension"]       = "aura_ascension",
     ["+1 skill point legends"]= "skill_point_legends",
     ["brainrot heroes"]       = "brainrot_heroes_autofarm",
@@ -31,6 +32,7 @@ local GAMES_BY_NAME = {
     ["break a lucky block"]  = "break_a_lucky_block",
     ["be a lucky block"]     = "be_a_lucky_block",
     ["zombie"]               = "zombie_game",
+    ["timber spin"]          = "timber_spin_simulator",
 }
 
 local BASE_URL = "https://keys.dallaswebstudio.net/script/"
