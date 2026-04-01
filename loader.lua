@@ -1,6 +1,6 @@
 --// Aurora Universal Loader — with Key System
 --// Made by notCitruss
---// Usage: loadstring(game:HttpGet("https://keys.dallaswebstudio.net/loader.lua"))()
+--// Usage: loadstring(game:HttpGet("https://raw.githubusercontent.com/notCitruss/Aurora/main/loader.lua"))()
 
 local Players = game:GetService("Players")
 local Player = Players.LocalPlayer

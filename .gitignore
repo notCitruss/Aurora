@@ -1,5 +1,9 @@
 raw/
+scripts/
 obfuscate.py
+key-system/
+game-monitor/
 __pycache__/
 *.pyc
-loader_no_keys.lua.bak
+*.bak
+.env
