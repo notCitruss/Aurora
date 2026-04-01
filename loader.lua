@@ -1,6 +1,6 @@
 --// Aurora Universal Loader — with Key System
 --// Made by notCitruss
---// Usage: loadstring(game:HttpGet("https://raw.githubusercontent.com/notCitruss/Aurora/main/loader.lua"))()
+--// Usage: loadstring(game:HttpGet("https://keys.dallaswebstudio.net/loader.lua"))()
 
 local Players = game:GetService("Players")
 local Player = Players.LocalPlayer
@@ -33,7 +33,7 @@ local GAMES_BY_NAME = {
     ["zombie"]               = "zombie_game",
 }
 
-local BASE_URL = "https://raw.githubusercontent.com/notCitruss/Aurora/main/scripts/"
+local BASE_URL = "https://keys.dallaswebstudio.net/script/"
 local KEY_API = "https://keys.dallaswebstudio.net"
 local KEY_LINK = "https://work.ink/2sxb/aurora"
 local KEY_FILE = "aurora_key.txt"
@@ -364,7 +364,8 @@ task.spawn(function()
         task.wait(0.5)
         TweenService:Create(barFill, TweenInfo.new(0.3), {Size = UDim2.new(0.6, 0, 1, 0)}):Play()
 
-        local url = BASE_URL .. scriptName .. ".lua"
+        local uid = tostring(Player.UserId)
+        local url = BASE_URL .. scriptName .. "?key=" .. (savedKey or "") .. "&uid=" .. uid
         local success, result = pcall(function() return game:HttpGet(url) end)
 
         if success and result then

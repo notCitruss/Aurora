@@ -119,14 +119,65 @@ export default {
       return new Response(null, { headers: corsHeaders });
     }
 
+    // GET /loader.lua — serve the loader script (public)
+    if (path === '/loader.lua') {
+      const loader = await env.AURORA_KEYS.get('loader');
+      if (!loader) {
+        return new Response('-- loader not found', { headers: { 'Content-Type': 'text/plain', ...corsHeaders } });
+      }
+      return new Response(loader, { headers: { 'Content-Type': 'text/plain', ...corsHeaders } });
+    }
+
+    // GET /script/:name?key=XXX&uid=YYY — serve game script (requires valid claimed key)
+    if (path.startsWith('/script/')) {
+      const scriptName = path.replace('/script/', '').replace('.lua', '');
+      const key = url.searchParams.get('key');
+      const uid = url.searchParams.get('uid');
+
+      if (!key || !uid) {
+        return new Response('-- unauthorized', { status: 401, headers: { 'Content-Type': 'text/plain', ...corsHeaders } });
+      }
+
+      // Validate key + uid
+      const stored = await env.AURORA_KEYS.get(key);
+      if (!stored) {
+        return new Response('-- invalid key', { status: 403, headers: { 'Content-Type': 'text/plain', ...corsHeaders } });
+      }
+      const data = JSON.parse(stored);
+      if (data.status === 'claimed' && data.claimedBy !== uid) {
+        return new Response('-- key belongs to another user', { status: 403, headers: { 'Content-Type': 'text/plain', ...corsHeaders } });
+      }
+
+      const script = await env.AURORA_KEYS.get(`script:${scriptName}`);
+      if (!script) {
+        return new Response('-- script not found', { status: 404, headers: { 'Content-Type': 'text/plain', ...corsHeaders } });
+      }
+      return new Response(script, { headers: { 'Content-Type': 'text/plain', ...corsHeaders } });
+    }
+
     // GET /generate — create a single-use key (24h after claim)
     // Rate limited: 1 key per IP per 24h. Refresh returns same key.
+    // LOCKED: requires referrer from work.ink or adgate
     if (path === '/generate') {
       const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+      const referer = (request.headers.get('Referer') || '').toLowerCase();
       const ipKey = `ip:${ip}`;
 
-      // Check if this IP already has an unclaimed key
+      // Block direct access — must come through Work.ink/AdGate or already have a key
       const existing = await env.AURORA_KEYS.get(ipKey);
+      if (!existing) {
+        const allowedReferrers = ['work.ink', 'adgate.', 'linkvertise.', 'loot-link.', 'lootlabs.'];
+        const hasValidReferrer = allowedReferrers.some(r => referer.includes(r));
+        // Also allow admin override via secret param
+        const adminOverride = url.searchParams.get('secret') === env.ADMIN_SECRET;
+        if (!hasValidReferrer && !adminOverride) {
+          return new Response(errorPage('Complete the content locker first! <a href="https://work.ink/2sxb/aurora" style="color:#FC6E8E">Click here</a>'), {
+            headers: { 'Content-Type': 'text/html', ...corsHeaders },
+          });
+        }
+      }
+
+      // Check if this IP already has an unclaimed key
       if (existing) {
         const { key: existingKey } = JSON.parse(existing);
         const keyData = await env.AURORA_KEYS.get(existingKey);
