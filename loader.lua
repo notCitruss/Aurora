@@ -35,6 +35,20 @@ local GAMES_BY_ID = {
     [122079988266644] = "idle_potato_game",
     [131756752872026] = "dive_down",
     [83622406313819]  = "loot_up",
+    [286090429]       = "arsenal",
+    [2133507413]      = "arsenal",
+    [8841631016]      = "abyss",
+    [6499213745]      = "abyss",
+    [606849621]       = "jailbreak",
+    [2456517837]      = "tsunami",
+    [7456917583]      = "tsunami",
+    [18668065096]     = "sab",
+    [2957674229]      = "sniper_duels",
+    [3519873232]      = "sniper_duels",
+    [5334680521]      = "swing_obby",
+    [4924922222]      = "brookhaven",
+    [10495922230]     = "ninety_nine_nights",
+    [2753915549]      = "blox_fruits",
 }
 
 local GAMES_BY_NAME = {
@@ -58,6 +72,18 @@ local GAMES_BY_NAME = {
     ["dive down"]             = "dive_down",
     ["loot up"]               = "loot_up",
     ["loot up!"]              = "loot_up",
+    ["arsenal"]               = "arsenal",
+    ["abyss"]                 = "abyss",
+    ["jailbreak"]             = "jailbreak",
+    ["tsunami"]               = "tsunami",
+    ["escape the tsunami"]    = "tsunami",
+    ["sab"]                   = "sab",
+    ["steal a brainrot"]      = "sab",
+    ["sniper duels"]          = "sniper_duels",
+    ["swing obby"]            = "swing_obby",
+    ["brookhaven"]            = "brookhaven",
+    ["99 nights"]             = "ninety_nine_nights",
+    ["blox fruits"]           = "blox_fruits",
 }
 
 ---------- HWID ----------
