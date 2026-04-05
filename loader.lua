@@ -121,14 +121,20 @@ local function saveKey(key)
 end
 
 local function validateKey(key)
-    if not key or #key < 10 then return false end
+    if not key or #key < 10 then return false, "free" end
     local ok, result = pcall(function()
         local uid = tostring(Player.UserId)
         local resp = game:HttpGet(KEY_API .. "/validate?key=" .. key .. "&uid=" .. uid .. "&lock=" .. HWID, true)
         local data = HttpService:JSONDecode(resp)
-        return data and data.valid == true
+        if data and data.valid == true then
+            return { valid = true, tier = data.tier or "premium" }
+        end
+        return { valid = false, tier = "free" }
     end)
-    return ok and result
+    if ok and result and result.valid then
+        return true, result.tier
+    end
+    return false, "free"
 end
 
 ---------- CLEANUP OLD GUIs ----------
@@ -756,7 +762,10 @@ if not keyValid then
                 return HttpService:JSONDecode(raw)
             end)
             if ok and resp and resp.valid then
-                redeemLabel.Text = "Key Valid!"
+                local tier = resp.tier or "premium"
+                getgenv().AuroraTier = tier
+                getgenv().AuroraKeyTier = tier
+                redeemLabel.Text = tier == "private" and "Private Key Valid!" or "Key Valid!"
                 redeemLabel.TextColor3 = C.green
                 saveKey(key)
                 task.wait(1)
@@ -1232,10 +1241,23 @@ if scriptName and savedKey then
 
     -- Fetch script
     local uid = tostring(Player.UserId)
-    local url = BASE_URL .. scriptName .. "?key=" .. savedKey .. "&uid=" .. uid .. "&lock=" .. HWID
+    -- Private tier tries private script first, falls back to public
+    local tier = getgenv().AuroraTier or "free"
+    local url
+    if tier == "private" then
+        url = BASE_URL .. "private/" .. scriptName .. "?key=" .. savedKey .. "&uid=" .. uid .. "&lock=" .. HWID
+    else
+        url = BASE_URL .. scriptName .. "?key=" .. savedKey .. "&uid=" .. uid .. "&lock=" .. HWID
+    end
 
     loadStatus.Text = "Downloading..."
     local success, result = pcall(function() return game:HttpGet(url) end)
+
+    -- If private script not found, fall back to public version
+    if tier == "private" and (not success or not result or result:find("script not found")) then
+        url = BASE_URL .. scriptName .. "?key=" .. savedKey .. "&uid=" .. uid .. "&lock=" .. HWID
+        success, result = pcall(function() return game:HttpGet(url) end)
+    end
 
     if success and result and #result > 0 then
         loadStatus.Text = "Executing..."
