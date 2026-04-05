@@ -158,7 +158,12 @@ local savedKey = nil
 savedKey = readKey()
 local keyValid = false
 if savedKey then
-    keyValid = validateKey(savedKey)
+    local valid, tier = validateKey(savedKey)
+    keyValid = valid
+    if valid then
+        getgenv().AuroraTier = tier
+        getgenv().AuroraKeyTier = tier
+    end
 end
 
 --// ============================================================
