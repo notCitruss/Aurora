@@ -49,6 +49,7 @@ local GAMES_BY_ID = {
     [4924922222]      = "brookhaven",
     [79546208627805]     = "ninety_nine_nights",
     [2753915549]      = "blox_fruits",
+    [70845479499574]  = "bite_by_night",
 }
 
 local GAMES_BY_NAME = {
@@ -84,6 +85,7 @@ local GAMES_BY_NAME = {
     ["brookhaven"]            = "brookhaven",
     ["99 nights"]             = "ninety_nine_nights",
     ["blox fruits"]           = "blox_fruits",
+    ["bite by night"]         = "bite_by_night",
 }
 
 ---------- HWID ----------
