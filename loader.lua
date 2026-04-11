@@ -952,4 +952,4 @@ else
     _el.Text = 'Aurora Compile Error: ' .. tostring(_e):sub(1, 300)
     _el.BorderSizePixel = 0
   end)
-end
+end-- v1775867173
