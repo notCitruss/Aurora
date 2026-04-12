@@ -540,9 +540,11 @@ local function catchFishInZone(zoneName)
         local rarity       = getRarity(f)
         local shouldCatch  = false
 
-        if isNormal and not mutationType and SelMutations["Normal"] then shouldCatch = true end
-        if isNormal and SelRarities[rarity] and not mutationType then shouldCatch = true end
-        if mutationType and SelMutations[mutationType] then shouldCatch = true end
+        -- Must pass rarity filter AND mutation filter
+        if not SelRarities[rarity] then shouldCatch = false
+        elseif mutationType then shouldCatch = SelMutations[mutationType]
+        else shouldCatch = SelMutations["Normal"]
+        end
 
         if shouldCatch then
             local cps = f:GetAttribute("CashPerSec") or 0
@@ -1251,9 +1253,10 @@ actionButton("Catch All (Filter)", C.green, _curLeft, function()
             end
             local rarity = getRarity(f)
             local shouldCatch = false
-            if isNormal and not mutationType and SelMutations["Normal"] and SelRarities[rarity] then shouldCatch = true end
-            if isNormal and not mutationType and SelRarities[rarity] then shouldCatch = true end
-            if mutationType and SelMutations[mutationType] then shouldCatch = true end
+            if not SelRarities[rarity] then shouldCatch = false
+            elseif mutationType then shouldCatch = SelMutations[mutationType]
+            else shouldCatch = SelMutations["Normal"]
+            end
             if not shouldCatch then continue end
             pcall(function()
                 hrp.CFrame = rootPart.CFrame * CFrame.new(0, 0, -3)
