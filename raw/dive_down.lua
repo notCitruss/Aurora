@@ -336,26 +336,36 @@ end
 local function doFeedFish()
     if not CFG.AutoFeedFish then return end
     pcall(function()
-        local sv = NET:FindFirstChild("Get Save-RemoteFunction"):InvokeServer()
-        if sv and sv.AquariumFish and sv.OwnedTreats then
-            local sorted = {}
-            for fId, fData in sv.AquariumFish do
-                local cps = typeof(fData) == "table" and (fData.CashPerSec or fData.Earnings or 0) or 0
-                table.insert(sorted, {id = fId, cps = cps})
-            end
-            table.sort(sorted, function(a, b) return a.cps > b.cps end)
-            local slotNames = {"1st", "2nd", "3rd", "4th", "5th"}
-            for i = 1, math.min(5, #sorted) do
-                if not CFG.AutoFeedFish then break end
-                if not SelFeedSlots[slotNames[i]] then continue end
-                local fish = sorted[i]
-                for tName, count in sv.OwnedTreats do
-                    if count > 0 then
-                        fireNet("FeedFish", fish.id, tName)
-                        S.feeds += 1
-                        task.wait(0.15)
-                        break
-                    end
+        local remote = NET:FindFirstChild("Get Save-RemoteFunction")
+        if not remote then return end
+        local ok, sv = pcall(function() return remote:InvokeServer() end)
+        if not ok or typeof(sv) ~= "table" then return end
+        if not sv.AquariumFish or not sv.OwnedTreats then return end
+        -- Check we have any treats at all
+        local hasTreats = false
+        for _, count in sv.OwnedTreats do if count > 0 then hasTreats = true; break end end
+        if not hasTreats then return end
+        -- Sort aquarium fish by earnings
+        local sorted = {}
+        for fId, fData in sv.AquariumFish do
+            local cps = typeof(fData) == "table" and (fData.CashPerSec or fData.Earnings or 0) or 0
+            table.insert(sorted, {id = fId, cps = cps})
+        end
+        table.sort(sorted, function(a, b) return a.cps > b.cps end)
+        -- Feed selected slots (fallback: feed all 5 if SelFeedSlots is empty)
+        local slotNames = {"1st", "2nd", "3rd", "4th", "5th"}
+        local anySlotSelected = false
+        for _, s in slotNames do if SelFeedSlots[s] then anySlotSelected = true; break end end
+        for i = 1, math.min(5, #sorted) do
+            if not CFG.AutoFeedFish then break end
+            if anySlotSelected and not SelFeedSlots[slotNames[i]] then continue end
+            local fish = sorted[i]
+            for tName, count in sv.OwnedTreats do
+                if count > 0 then
+                    fireNet("FeedFish", fish.id, tName)
+                    S.feeds += 1
+                    task.wait(0.15)
+                    break
                 end
             end
         end
