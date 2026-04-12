@@ -133,6 +133,8 @@ for _, z in ipairs(OCEAN_ZONES) do SelZones[z.label] = true end
 ---------- SELECTIONS ----------
 local SelTreats = {Worm = true, Bee = true, Cockroach = true, Snail = true}
 local SelTools  = {HarpoonGun = true, TNT = true}
+local FEED_SLOTS = {"1st", "2nd", "3rd", "4th", "5th"}
+local SelFeedSlots = {["1st"]=true, ["2nd"]=true, ["3rd"]=true, ["4th"]=true, ["5th"]=true}
 
 ---------- SAVE/LOAD ----------
 local _cfgFileName = "aurora_cfg_dive_down.json"
@@ -148,6 +150,7 @@ local function loadSavedCFG()
         end
         if saved._SelTreats      then for k,_ in SelTreats      do SelTreats[k]      = nil end; for k,v in saved._SelTreats      do SelTreats[k]      = v end end
         if saved._SelTools       then for k,_ in SelTools        do SelTools[k]       = nil end; for k,v in saved._SelTools       do SelTools[k]       = v end end
+        if saved._SelFeedSlots  then for k,_ in SelFeedSlots   do SelFeedSlots[k]   = nil end; for k,v in saved._SelFeedSlots  do SelFeedSlots[k]   = v end end
         if saved._SelRarities    then for k,_ in SelRarities     do SelRarities[k]    = nil end; for k,v in saved._SelRarities    do SelRarities[k]    = v end end
         if saved._SelSellRarities then for k,_ in SelSellRarities do SelSellRarities[k] = nil end; for k,v in saved._SelSellRarities do SelSellRarities[k] = v end end
         if saved._SelZones       then for k,_ in SelZones        do SelZones[k]       = nil end; for k,v in saved._SelZones       do SelZones[k]       = v end end
@@ -160,6 +163,7 @@ local function saveCFG()
     for k, v in CFG do toSave[k] = v end
     toSave._SelTreats      = SelTreats
     toSave._SelTools       = SelTools
+    toSave._SelFeedSlots   = SelFeedSlots
     toSave._SelRarities    = SelRarities
     toSave._SelSellRarities = SelSellRarities
     toSave._SelZones       = SelZones
@@ -329,21 +333,21 @@ local function doFeedFish()
     pcall(function()
         local sv = NET:FindFirstChild("Get Save-RemoteFunction"):InvokeServer()
         if sv and sv.AquariumFish and sv.OwnedTreats then
-            -- Sort fish by CashPerSec descending, only feed top 5
+            -- Sort fish by CashPerSec descending, only feed selected slots from top 5
             local sorted = {}
             for fId, fData in sv.AquariumFish do
                 local cps = typeof(fData) == "table" and (fData.CashPerSec or fData.Earnings or 0) or 0
                 table.insert(sorted, {id = fId, cps = cps})
             end
             table.sort(sorted, function(a, b) return a.cps > b.cps end)
-            local fed = 0
-            for _, fish in sorted do
-                if fed >= 5 then break end
+            local slotNames = {"1st", "2nd", "3rd", "4th", "5th"}
+            for i = 1, math.min(5, #sorted) do
+                if not SelFeedSlots[slotNames[i]] then continue end
+                local fish = sorted[i]
                 for tName, count in sv.OwnedTreats do
                     if count > 0 then
                         fireNet("FeedFish", fish.id, tName)
                         S.feeds += 1
-                        fed += 1
                         task.wait(0.3)
                         break
                     end
@@ -1224,8 +1228,10 @@ actionButton("Catch All (Filter)", C.green, _curLeft, function()
             for _, mt in {"Silver","Gold","Rainbow","Frozen","Shocked","Magma","Chocolate","Dry","Infected","Evil"} do
                 if f:GetAttribute(mt) then mutationType = mt; break end
             end
+            local rarity = getRarity(f)
             local shouldCatch = false
-            if isNormal and not mutationType and SelMutations["Normal"] then shouldCatch = true end
+            if isNormal and not mutationType and SelMutations["Normal"] and SelRarities[rarity] then shouldCatch = true end
+            if isNormal and not mutationType and SelRarities[rarity] then shouldCatch = true end
             if mutationType and SelMutations[mutationType] then shouldCatch = true end
             if not shouldCatch then continue end
             pcall(function()
@@ -1265,6 +1271,7 @@ sectionHeader("Buy", _curLeft)
 toggleRow("Auto Buy Treats", "AutoBuyTreats", _curLeft)
 toggleRow("Auto Buy Tools",  "AutoBuyTools",  _curLeft)
 toggleRow("Auto Feed Fish",  "AutoFeedFish",  _curLeft)
+multiSelectDD("Feed Slots", FEED_SLOTS, SelFeedSlots, _curLeft)
 
 sectionHeader("Actions", _curRight)
 toggleRow("Auto Sell",       "AutoSell",      _curRight)
