@@ -445,19 +445,18 @@ local function getHRP()
 end
 
 local function reliableTP(target)
-    for attempt = 1, 3 do
+    for attempt = 1, 5 do
         local hrp = getHRP()
         if not hrp then
             task.wait(2)
             hrp = getHRP()
             if not hrp then return false end
         end
-        pcall(function() hrp.Anchored = true end)
-        task.wait(0.05)
+        pcall(function() hrp.Velocity = Vector3.zero end)
         pcall(function() hrp.CFrame = target end)
-        task.wait(0.1)
-        pcall(function() hrp.Anchored = false end)
-        task.wait(0.3)
+        task.wait(0.15)
+        pcall(function() hrp.Velocity = Vector3.zero end)
+        task.wait(0.2)
         hrp = getHRP()
         if hrp and (hrp.Position - target.Position).Magnitude < 50 then
             return true
@@ -1217,7 +1216,20 @@ toggleRow("Farm Auto Sell", "FarmAutoSell", _curLeft)
 
 actionButton("TP to Surface", C.green, _curLeft, function() tpToSurface() end)
 actionButton("TP to Ice Area", C.blue or C.accent, _curLeft, function()
-    reliableTP(CFrame.new(-1928, -1957, -1419))
+    pcall(function()
+        local hrp = getHRP()
+        if not hrp then return end
+        -- Force TP with velocity reset to prevent rubber-banding
+        for _ = 1, 5 do
+            pcall(function()
+                hrp.Velocity = Vector3.zero
+                hrp.CFrame = CFrame.new(-1928, -1957, -1419)
+            end)
+            task.wait(0.15)
+            hrp = getHRP()
+            if hrp and hrp.Position.Y < -1900 then break end
+        end
+    end)
 end)
 actionButton("Sell Inventory", C.accent, _curLeft, function() doFilteredSell() end)
 actionButton("Equip Best Fish", C.accent, _curLeft, function() doEquipBest() end)
