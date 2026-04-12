@@ -150,7 +150,7 @@ local function loadSavedCFG()
         end
         if saved._SelTreats      then for k,_ in SelTreats      do SelTreats[k]      = nil end; for k,v in saved._SelTreats      do SelTreats[k]      = v end end
         if saved._SelTools       then for k,_ in SelTools        do SelTools[k]       = nil end; for k,v in saved._SelTools       do SelTools[k]       = v end end
-        if saved._SelFeedSlots  then for k,_ in SelFeedSlots   do SelFeedSlots[k]   = nil end; for k,v in saved._SelFeedSlots  do SelFeedSlots[k]   = v end end
+        if saved._SelFeedSlots and next(saved._SelFeedSlots) then for k,_ in SelFeedSlots do SelFeedSlots[k] = nil end; for k,v in saved._SelFeedSlots do SelFeedSlots[k] = v end end
         if saved._SelRarities    then for k,_ in SelRarities     do SelRarities[k]    = nil end; for k,v in saved._SelRarities    do SelRarities[k]    = v end end
         if saved._SelSellRarities then for k,_ in SelSellRarities do SelSellRarities[k] = nil end; for k,v in saved._SelSellRarities do SelSellRarities[k] = v end end
         if saved._SelZones       then for k,_ in SelZones        do SelZones[k]       = nil end; for k,v in saved._SelZones       do SelZones[k]       = v end end
@@ -353,7 +353,7 @@ local function doFeedFish()
                     if count > 0 then
                         fireNet("FeedFish", fish.id, tName)
                         S.feeds += 1
-                        task.wait(0.3)
+                        task.wait(0.15)
                         break
                     end
                 end
@@ -392,7 +392,7 @@ task.spawn(function() while true do if CFG.AutoSell      then pcall(doFilteredSe
 task.spawn(function() while true do if CFG.AutoEquipBest then pcall(doEquipBest)   end; task.wait(jitter(10, 3.0)) end end)
 task.spawn(function() while true do if CFG.AutoBuyTreats then pcall(doBuyTreats)   end; task.wait(jitter(10, 3.0)) end end)
 task.spawn(function() while true do if CFG.AutoBuyTools  then pcall(doBuyTools)    end; task.wait(jitter(10, 3.0)) end end)
-task.spawn(function() while true do if CFG.AutoFeedFish  then pcall(doFeedFish)    end; task.wait(jitter(10, 3.0)) end end)
+task.spawn(function() while true do if CFG.AutoFeedFish  then pcall(doFeedFish)    end; task.wait(jitter(5, 1.5)) end end)
 task.spawn(function() while true do if CFG.AutoRebirth   then pcall(doRebirth)     end; task.wait(jitter(15, 4.5)) end end)
 task.spawn(function() while true do if CFG.AutoClaim     then pcall(doClaim)       end; task.wait(jitter(30, 9.0)) end end)
 task.spawn(function() while true do if CFG.StealFish     then pcall(doSteal)       end; task.wait(jitter(10, 3.0)) end end)
