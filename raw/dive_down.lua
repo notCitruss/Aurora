@@ -308,8 +308,10 @@ local function getUIStock()
 end
 
 local function doBuyTreats()
+    if not CFG.AutoBuyTreats then return end
     local stock = getUIStock()
     for name, sel in SelTreats do
+        if not CFG.AutoBuyTreats then break end
         if sel and (stock.Treat[name] or 0) > 0 then
             pcall(function() PKT.BuyItem:Fire("Treat", name) end)
             S.treats += 1
@@ -319,8 +321,10 @@ local function doBuyTreats()
 end
 
 local function doBuyTools()
+    if not CFG.AutoBuyTools then return end
     local stock = getUIStock()
     for name, sel in SelTools do
+        if not CFG.AutoBuyTools then break end
         if sel and (stock.Tool[name] or 0) > 0 then
             pcall(function() PKT.BuyItem:Fire("Tool", name) end)
             S.tools += 1
@@ -330,10 +334,10 @@ local function doBuyTools()
 end
 
 local function doFeedFish()
+    if not CFG.AutoFeedFish then return end
     pcall(function()
         local sv = NET:FindFirstChild("Get Save-RemoteFunction"):InvokeServer()
         if sv and sv.AquariumFish and sv.OwnedTreats then
-            -- Sort fish by CashPerSec descending, only feed selected slots from top 5
             local sorted = {}
             for fId, fData in sv.AquariumFish do
                 local cps = typeof(fData) == "table" and (fData.CashPerSec or fData.Earnings or 0) or 0
@@ -342,6 +346,7 @@ local function doFeedFish()
             table.sort(sorted, function(a, b) return a.cps > b.cps end)
             local slotNames = {"1st", "2nd", "3rd", "4th", "5th"}
             for i = 1, math.min(5, #sorted) do
+                if not CFG.AutoFeedFish then break end
                 if not SelFeedSlots[slotNames[i]] then continue end
                 local fish = sorted[i]
                 for tName, count in sv.OwnedTreats do
@@ -372,7 +377,9 @@ local function doClaim()
 end
 
 local function doSteal()
+    if not CFG.StealFish then return end
     for _, p in Players:GetPlayers() do
+        if not CFG.StealFish then break end
         if p ~= Player then
             fireNet("RequestStealFish", p)
             S.steals += 1
@@ -651,9 +658,11 @@ task.spawn(function()
             end
             local zone = activeZones[math.random(#activeZones)]
 
+            if not CFG.AutoFarm then _farmStatus = nil; continue end
             _farmStatus = "Diving to " .. zone.label .. "..."
             tpToZone(zone)
             task.wait(0.8)
+            if not CFG.AutoFarm then _farmStatus = nil; continue end
 
             local caught = catchFishInZone(zone.name)
             if caught > 0 then
