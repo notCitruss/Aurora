@@ -455,12 +455,32 @@ local function reliableTP(target)
     return false
 end
 
+-- Cache player plot (refreshes if nil or destroyed)
+local _myPlot = nil
+local function getMyPlot()
+    if _myPlot and _myPlot.Parent then return _myPlot end
+    -- Try GetPlayerPlot remote first (most reliable — returns actual plot instance)
+    pcall(function()
+        local plot = NET:FindFirstChild("GetPlayerPlot-RemoteFunction"):InvokeServer()
+        if typeof(plot) == "Instance" then _myPlot = plot end
+    end)
+    -- Fallback: search by player name
+    if not _myPlot then
+        pcall(function()
+            _myPlot = workspace.Game.Plots:FindFirstChild(Player.Name)
+        end)
+    end
+    return _myPlot
+end
+
 local function tpToSurface()
     local plotSpawn = CFrame.new(-1813, 2530, -1421)
     pcall(function()
-        local myPlot = game.Workspace.Game.Plots:FindFirstChild(Player.Name)
+        local myPlot = getMyPlot()
         if myPlot and myPlot:FindFirstChild("SpawnLocation") then
             plotSpawn = myPlot.SpawnLocation.CFrame + Vector3.new(0, 5, 0)
+        elseif myPlot then
+            plotSpawn = myPlot:GetPivot() + Vector3.new(0, 5, 0)
         end
     end)
     return reliableTP(plotSpawn)
@@ -1183,6 +1203,9 @@ toggleRow("Auto Farm", "AutoFarm", _curLeft)
 toggleRow("Farm Auto Sell", "FarmAutoSell", _curLeft)
 
 actionButton("TP to Surface", C.green, _curLeft, function() tpToSurface() end)
+actionButton("TP to Ice Area", C.blue or C.accent, _curLeft, function()
+    reliableTP(CFrame.new(-1928, -1957, -1419))
+end)
 actionButton("Sell Inventory", C.accent, _curLeft, function() doFilteredSell() end)
 actionButton("Equip Best Fish", C.accent, _curLeft, function() doEquipBest() end)
 actionButton("Catch All (Filter)", C.green, _curLeft, function()
@@ -1214,6 +1237,7 @@ actionButton("Catch All (Filter)", C.green, _curLeft, function()
             task.wait(jitter(0.3, 0.2))
         end
         _farmStatus = "Caught " .. caught .. " fish (all zones)"
+        tpToSurface()
     end)
 end)
 
@@ -1291,20 +1315,7 @@ actionButton("Claim Rewards", C.green,  _curLeft, function() doClaim()   end)
 actionButton("TP Kraken",     C.accent, _curLeft, function()
     pcall(function() Player.Character.HumanoidRootPart.CFrame = CFrame.new(-1928, -1103, -1419) end)
 end)
-actionButton("TP Aquarium", C.green, _curLeft, function()
-    pcall(function()
-        local plots = workspace.Game.Plots
-        local myPlot = plots:FindFirstChild(Player.Name)
-        if myPlot then
-            local spawn = myPlot:FindFirstChild("SpawnLocation")
-            if spawn then
-                Player.Character.HumanoidRootPart.CFrame = spawn.CFrame + Vector3.new(0, 5, 0)
-            elseif myPlot.PrimaryPart then
-                Player.Character.HumanoidRootPart.CFrame = myPlot.PrimaryPart.CFrame + Vector3.new(0, 5, 0)
-            end
-        end
-    end)
-end)
+actionButton("TP Aquarium", C.green, _curLeft, function() tpToSurface() end)
 
 -- Right: Player stats
 sectionHeader("Player Stats", _curRight)
