@@ -777,17 +777,18 @@ if not keyValid then
         Name = "GetKey",
         Size = UDim2.new(0.333, -4, 1, 0),
         Position = UDim2.fromOffset(0, 0),
-        BackgroundColor3 = C.accent,
+        BackgroundColor3 = Color3.fromRGB(55, 35, 45),
         BorderSizePixel = 0,
     }, adRow)
     corner(getKeyBtn, 8)
+    stroke(getKeyBtn, C.accent)
     makeButton(getKeyBtn)
 
     local getKeyLabel = label(getKeyBtn, {
         Size = UDim2.new(1, 0, 1, 0),
         Text = "Work.ink",
         TextSize = 11,
-        TextColor3 = C.text,
+        TextColor3 = C.accent,
         Font = Enum.Font.GothamBold,
         TextXAlignment = Enum.TextXAlignment.Center,
     })
@@ -796,7 +797,7 @@ if not keyValid then
         pcall(function() if setclipboard then setclipboard(KEY_LINK) end end)
         getKeyLabel.Text = "Copied!"
         getKeyLabel.TextColor3 = C.green
-        task.delay(1.5, function() pcall(function() getKeyLabel.Text = "Work.ink"; getKeyLabel.TextColor3 = C.text end) end)
+        task.delay(1.5, function() pcall(function() getKeyLabel.Text = "Work.ink"; getKeyLabel.TextColor3 = C.accent end) end)
     end)
 
     -- Linkvertise (center third, blue)
