@@ -777,7 +777,7 @@ if not keyValid then
         Name = "GetKey",
         Size = UDim2.new(0.333, -4, 1, 0),
         Position = UDim2.fromOffset(0, 0),
-        BackgroundColor3 = Color3.fromRGB(55, 35, 45),
+        BackgroundColor3 = Color3.fromRGB(40, 40, 65),
         BorderSizePixel = 0,
     }, adRow)
     corner(getKeyBtn, 8)
