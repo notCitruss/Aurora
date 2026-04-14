@@ -16,6 +16,7 @@ local BASE_URL = "https://keys.dallaswebstudio.net/script/"
 local KEY_API = "https://keys.dallaswebstudio.net"
 local KEY_LINK = "https://work.ink/2sxb/aurora"
 local KEY_LINK_2 = "https://link-target.net/4830946/ckqnMuwLtVoa"
+local KEY_LINK_3 = "https://loot-link.com/s?ENzanDOy"
 local KEY_FILE = "aurora_key.txt"
 
 ---------- GAME REGISTRY ----------
@@ -652,19 +653,24 @@ if not keyValid then
         end)
     end)
 
-    -- Key Input Area
+    -- Key Input Area (uses UIListLayout for clean stacking)
     local keySection = create("Frame", {
         Name = "KeySection",
-        Size = UDim2.new(1, 0, 0, 84),
+        Size = UDim2.new(1, 0, 0, 164),
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
         LayoutOrder = 3,
     }, centerPanel)
 
+    create("UIListLayout", {
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Padding = UDim.new(0, 6),
+    }, keySection)
+
+    -- Row 1: Key Input
     local keyInput = create("TextBox", {
         Name = "KeyInput",
         Size = UDim2.new(1, 0, 0, 36),
-        Position = UDim2.fromOffset(0, 0),
         BackgroundColor3 = C.inputBg,
         BorderSizePixel = 0,
         Text = "",
@@ -674,121 +680,27 @@ if not keyValid then
         TextSize = 13,
         Font = Enum.Font.GothamSemibold,
         ClearTextOnFocus = false,
+        LayoutOrder = 1,
     }, keySection)
     corner(keyInput, 8)
     stroke(keyInput, Color3.fromRGB(40, 40, 60))
     create("UIPadding", { PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 12) }, keyInput)
 
-    -- Buttons row
-    local btnRow = create("Frame", {
-        Size = UDim2.new(1, 0, 0, 36),
-        Position = UDim2.fromOffset(0, 44),
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-    }, keySection)
-
-    -- Get Key button (left half, accent bg)
-    local getKeyBtn = create("Frame", {
-        Name = "GetKey",
-        Size = UDim2.new(0.5, -4, 1, 0),
-        Position = UDim2.fromOffset(0, 0),
-        BackgroundColor3 = C.accent,
-        BorderSizePixel = 0,
-    }, btnRow)
-    corner(getKeyBtn, 8)
-    makeButton(getKeyBtn)
-
-    local getKeyLabel = label(getKeyBtn, {
-        Size = UDim2.new(1, -40, 1, 0),
-        Position = UDim2.fromOffset(8, 0),
-        Text = "Work.ink",
-        TextSize = 12,
-        TextColor3 = C.text,
-        Font = Enum.Font.GothamBold,
-        TextXAlignment = Enum.TextXAlignment.Center,
-    })
-
-    -- FREE badge
-    local freeBadge = create("Frame", {
-        Size = UDim2.fromOffset(32, 16),
-        Position = UDim2.new(1, -38, 0.5, -8),
-        BackgroundColor3 = Color3.fromRGB(255, 255, 255),
-        BorderSizePixel = 0,
-    }, getKeyBtn)
-    corner(freeBadge, 4)
-    label(freeBadge, {
-        Size = UDim2.new(1, 0, 1, 0),
-        Text = "FREE",
-        TextSize = 8,
-        TextColor3 = C.accent,
-        Font = Enum.Font.GothamBold,
-        TextXAlignment = Enum.TextXAlignment.Center,
-    })
-
-    connectClick(getKeyBtn, function()
-        pcall(function()
-            if setclipboard then setclipboard(KEY_LINK) end
-        end)
-        getKeyLabel.Text = "Copied!"
-        getKeyLabel.TextColor3 = C.green
-        task.delay(1.5, function()
-            pcall(function()
-                getKeyLabel.Text = "Work.ink"
-                getKeyLabel.TextColor3 = C.text
-            end)
-        end)
-    end)
-
-    -- Linkvertise key button (below Get Key)
-    local lvBtn = create("Frame", {
-        Name = "LinkvertiseKey",
-        Size = UDim2.new(0.5, -4, 0, 34),
-        Position = UDim2.new(0, 0, 1, 6),
-        BackgroundColor3 = Color3.fromRGB(40, 40, 65),
-        BorderSizePixel = 0,
-    }, getKeyBtn)
-    corner(lvBtn, 8)
-    stroke(lvBtn, Color3.fromRGB(100, 180, 255))
-    makeButton(lvBtn)
-    local lvLabel = label(lvBtn, {
-        Name = "Label",
-        Size = UDim2.new(1, 0, 1, 0),
-        Text = "Linkvertise",
-        TextSize = 11,
-        TextColor3 = Color3.fromRGB(100, 180, 255),
-        Font = Enum.Font.GothamBold,
-        TextXAlignment = Enum.TextXAlignment.Center,
-    })
-    connectClick(lvBtn, function()
-        pcall(function()
-            if setclipboard then setclipboard(KEY_LINK_2) end
-        end)
-        lvLabel.Text = "Copied!"
-        lvLabel.TextColor3 = C.green
-        task.delay(1.5, function()
-            pcall(function()
-                lvLabel.Text = "Linkvertise"
-                lvLabel.TextColor3 = Color3.fromRGB(100, 180, 255)
-            end)
-        end)
-    end)
-
-    -- Redeem button (right half, accent border)
+    -- Row 2: Redeem button (full width)
     local redeemBtn = create("Frame", {
         Name = "Redeem",
-        Size = UDim2.new(0.5, -4, 1, 0),
-        Position = UDim2.new(0.5, 4, 0, 0),
-        BackgroundColor3 = C.card,
+        Size = UDim2.new(1, 0, 0, 36),
+        BackgroundColor3 = C.accent,
         BorderSizePixel = 0,
-    }, btnRow)
+        LayoutOrder = 2,
+    }, keySection)
     corner(redeemBtn, 8)
-    stroke(redeemBtn, C.accent)
     makeButton(redeemBtn)
 
     local redeemLabel = label(redeemBtn, {
         Size = UDim2.new(1, 0, 1, 0),
-        Text = "\xE2\x9C\x93 Redeem",
-        TextSize = 12,
+        Text = "\xE2\x9C\x93 Redeem Key",
+        TextSize = 13,
         TextColor3 = C.text,
         Font = Enum.Font.GothamBold,
         TextXAlignment = Enum.TextXAlignment.Center,
@@ -801,7 +713,7 @@ if not keyValid then
             redeemLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
             task.delay(1.5, function()
                 pcall(function()
-                    redeemLabel.Text = "\xE2\x9C\x93 Redeem"
+                    redeemLabel.Text = "\xE2\x9C\x93 Redeem Key"
                     redeemLabel.TextColor3 = C.text
                 end)
             end)
@@ -832,12 +744,115 @@ if not keyValid then
                 redeemLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
                 task.delay(2, function()
                     pcall(function()
-                        redeemLabel.Text = "\xE2\x9C\x93 Redeem"
+                        redeemLabel.Text = "\xE2\x9C\x93 Redeem Key"
                         redeemLabel.TextColor3 = C.text
                     end)
                 end)
             end
         end)
+    end)
+
+    -- Divider label
+    label(keySection, {
+        Size = UDim2.new(1, 0, 0, 14),
+        Text = "Get a free key:",
+        TextSize = 10,
+        TextColor3 = C.dim,
+        Font = Enum.Font.Gotham,
+        TextXAlignment = Enum.TextXAlignment.Center,
+        LayoutOrder = 3,
+    })
+
+    -- Row 3: Ad link buttons (Work.ink + Linkvertise + LootLabs)
+    local adRow = create("Frame", {
+        Name = "AdRow",
+        Size = UDim2.new(1, 0, 0, 34),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        LayoutOrder = 4,
+    }, keySection)
+
+    -- Work.ink (left third, accent bg)
+    local getKeyBtn = create("Frame", {
+        Name = "GetKey",
+        Size = UDim2.new(0.333, -4, 1, 0),
+        Position = UDim2.fromOffset(0, 0),
+        BackgroundColor3 = C.accent,
+        BorderSizePixel = 0,
+    }, adRow)
+    corner(getKeyBtn, 8)
+    makeButton(getKeyBtn)
+
+    local getKeyLabel = label(getKeyBtn, {
+        Size = UDim2.new(1, 0, 1, 0),
+        Text = "Work.ink",
+        TextSize = 11,
+        TextColor3 = C.text,
+        Font = Enum.Font.GothamBold,
+        TextXAlignment = Enum.TextXAlignment.Center,
+    })
+
+    connectClick(getKeyBtn, function()
+        pcall(function() if setclipboard then setclipboard(KEY_LINK) end end)
+        getKeyLabel.Text = "Copied!"
+        getKeyLabel.TextColor3 = C.green
+        task.delay(1.5, function() pcall(function() getKeyLabel.Text = "Work.ink"; getKeyLabel.TextColor3 = C.text end) end)
+    end)
+
+    -- Linkvertise (center third, blue)
+    local lvBtn = create("Frame", {
+        Name = "LinkvertiseKey",
+        Size = UDim2.new(0.333, -4, 1, 0),
+        Position = UDim2.new(0.333, 2, 0, 0),
+        BackgroundColor3 = Color3.fromRGB(40, 40, 65),
+        BorderSizePixel = 0,
+    }, adRow)
+    corner(lvBtn, 8)
+    stroke(lvBtn, Color3.fromRGB(100, 180, 255))
+    makeButton(lvBtn)
+
+    local lvLabel = label(lvBtn, {
+        Size = UDim2.new(1, 0, 1, 0),
+        Text = "Linkvertise",
+        TextSize = 11,
+        TextColor3 = Color3.fromRGB(100, 180, 255),
+        Font = Enum.Font.GothamBold,
+        TextXAlignment = Enum.TextXAlignment.Center,
+    })
+
+    connectClick(lvBtn, function()
+        pcall(function() if setclipboard then setclipboard(KEY_LINK_2) end end)
+        lvLabel.Text = "Copied!"
+        lvLabel.TextColor3 = C.green
+        task.delay(1.5, function() pcall(function() lvLabel.Text = "Linkvertise"; lvLabel.TextColor3 = Color3.fromRGB(100, 180, 255) end) end)
+    end)
+
+    -- LootLabs (right third, green)
+    local llBtn = create("Frame", {
+        Name = "LootLabsKey",
+        Size = UDim2.new(0.333, -2, 1, 0),
+        Position = UDim2.new(0.666, 4, 0, 0),
+        BackgroundColor3 = Color3.fromRGB(40, 55, 40),
+        BorderSizePixel = 0,
+    }, adRow)
+    corner(llBtn, 8)
+    stroke(llBtn, Color3.fromRGB(80, 200, 120))
+    makeButton(llBtn)
+
+    local llLabel = label(llBtn, {
+        Size = UDim2.new(1, 0, 1, 0),
+        Text = "LootLabs",
+        TextSize = 11,
+        TextColor3 = Color3.fromRGB(80, 200, 120),
+        Font = Enum.Font.GothamBold,
+        TextXAlignment = Enum.TextXAlignment.Center,
+    })
+
+    connectClick(llBtn, function()
+        pcall(function() if setclipboard then setclipboard(KEY_LINK_3) end end)
+        llLabel.Text = "Copied!"
+        llLabel.TextColor3 = C.green
+        task.delay(1.5, function() pcall(function() llLabel.Text = "LootLabs"; llLabel.TextColor3 = Color3.fromRGB(80, 200, 120) end) end)
     end)
 
     -- Bottom Action Bar (Discord + Copy HWID)
