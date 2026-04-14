@@ -593,13 +593,14 @@ if not keyValid then
         LayoutOrder = 1,
     }, centerPanel)
 
-    label(logoFrame, {
-        Size = UDim2.new(1, 0, 0, 38),
-        Position = UDim2.fromOffset(0, 0),
-        Text = "\xF0\x9F\x8C\xB8",
-        TextSize = 36,
-        TextXAlignment = Enum.TextXAlignment.Center,
-    })
+    local logoImg = create("ImageLabel", {
+        Name = "Logo",
+        Size = UDim2.fromOffset(38, 38),
+        Position = UDim2.new(0.5, -19, 0, 0),
+        BackgroundTransparency = 1,
+        Image = "rbxassetid://77299357494181",
+        ScaleType = Enum.ScaleType.Fit,
+    }, logoFrame)
 
     local titleRow = create("Frame", {
         Size = UDim2.new(1, 0, 0, 24),
