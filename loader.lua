@@ -982,7 +982,7 @@ if not keyValid then
 
     connectClick(buyBtn, function()
         pcall(function()
-            if setclipboard then setclipboard("https://discord.gg/Ny22WZjg7c") end
+            if setclipboard then setclipboard("https://aurorahub.net/keys") end
         end)
         buyLbl.Text = "Copied!"
         buyLbl.TextColor3 = C.green
