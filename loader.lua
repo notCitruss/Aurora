@@ -1382,35 +1382,5 @@ if scriptName and savedKey then
         warn("[Aurora] Failed to download script for: " .. tostring(scriptName))
     end
 elseif not scriptName then
-    -- Load universal script as fallback
-    pcall(function()
-        loadStatus.Text = "Loading Universal..."
-        loadStatus.TextColor3 = Color3.fromRGB(252, 110, 142)
-    end)
-    local uniOk, uniSource = pcall(function()
-        local url = BASE_URL .. "universal"
-        if getgenv().AuroraTier == "private" then
-            local pUrl = BASE_URL .. "private/universal"
-            local pOk, pSrc = pcall(function() return game:HttpGet(pUrl) end)
-            if pOk and pSrc and #pSrc > 100 then return pSrc end
-        end
-        return game:HttpGet(url)
-    end)
-    if uniOk and uniSource and #uniSource > 100 then
-        pcall(function()
-            loadStatus.Text = "Ready!"
-            loadStatus.TextColor3 = Color3.fromRGB(80, 200, 120)
-        end)
-        task.wait(0.5)
-        pcall(function() loadGui:Destroy() end)
-        local fn = loadstring(uniSource)
-        if fn then fn() end
-    else
-        pcall(function()
-            loadStatus.Text = "No script for this game"
-            loadStatus.TextColor3 = Color3.fromRGB(255, 180, 50)
-        end)
-        task.wait(3)
-        pcall(function() loadGui:Destroy() end)
-    end
+    warn("[Aurora] No script available for this game")
 end
