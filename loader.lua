@@ -1256,10 +1256,18 @@ if not keyValid then
         gui:Destroy()
     end)
 
-    -- Wait for valid key (poll every 5s to prevent rate limit burn)
-    while not savedKey or not validateKey(savedKey) do
+    -- Wait for valid key — redeem handler sets savedKey directly, poll is backup only
+    while not savedKey do
         task.wait(5)
-        savedKey = readKey()
+        local polledKey = readKey()
+        if polledKey and not savedKey then
+            local valid, tier = validateKey(polledKey)
+            if valid then
+                savedKey = polledKey
+                getgenv().AuroraTier = tier
+                getgenv().AuroraKeyTier = tier
+            end
+        end
     end
 
     pcall(function() shadowConn:Disconnect() end)
