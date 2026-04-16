@@ -1,5 +1,9 @@
 --// Aurora Loader v4
---// loadstring(game:HttpGet("https://aurorahub.net/loader"))()
+--// loadstring(game:HttpGet("https://raw.githubusercontent.com/notCitruss/Aurora/main/loader.lua"))()
+
+print("[Aurora] Loader starting...")
+
+local _loaderOk, _loaderErr = pcall(function()
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -366,3 +370,42 @@ pcall(function()
         end)
     end)
 end)
+
+end) -- close outer pcall
+
+if not _loaderOk then
+    warn("[Aurora] Loader crashed: " .. tostring(_loaderErr))
+    pcall(function()
+        local Players = game:GetService("Players")
+        local Player = Players.LocalPlayer
+        if not Player then return end
+        local eg = Instance.new("ScreenGui")
+        eg.Name = "AuroraLoaderErr"
+        eg.ResetOnSpawn = false
+        local _pOk = false
+        if typeof(gethui) == "function" then _pOk = pcall(function() eg.Parent = gethui() end) end
+        if not _pOk then _pOk = pcall(function() eg.Parent = game:GetService("CoreGui") end) end
+        if not _pOk then eg.Parent = Player.PlayerGui end
+        local f = Instance.new("Frame")
+        f.Size = UDim2.new(0, 400, 0, 80)
+        f.Position = UDim2.new(0.5, -200, 0.4, 0)
+        f.BackgroundColor3 = Color3.fromRGB(30, 10, 10)
+        f.BorderSizePixel = 0
+        f.Parent = eg
+        local uic = Instance.new("UICorner")
+        uic.CornerRadius = UDim.new(0, 10)
+        uic.Parent = f
+        local l = Instance.new("TextLabel")
+        l.Size = UDim2.new(1, -16, 1, 0)
+        l.Position = UDim2.new(0, 8, 0, 0)
+        l.BackgroundTransparency = 1
+        l.TextColor3 = Color3.fromRGB(255, 80, 80)
+        l.TextSize = 12
+        l.Font = Enum.Font.GothamBold
+        l.TextWrapped = true
+        l.TextXAlignment = Enum.TextXAlignment.Left
+        l.Text = "[Aurora] Loader failed: " .. tostring(_loaderErr):sub(1, 200)
+        l.Parent = f
+        task.delay(10, function() pcall(function() eg:Destroy() end) end)
+    end)
+end
