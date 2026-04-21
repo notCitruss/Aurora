@@ -31,6 +31,7 @@ local GAMES_BY_ID = {
     [70845479499574]  = "bite_by_night",
     [132391015411211] = "split_or_steal",
     [77747658251236]  = "sailor_piece",
+    [81535567274521]  = "bee_garden",
 }
 
 local GAMES_BY_NAME = {
@@ -46,6 +47,8 @@ local GAMES_BY_NAME = {
     ["bite by night"]         = "bite_by_night",
     ["split or steal"]        = "split_or_steal",
     ["sailor piece"]          = "sailor_piece",
+    ["bee garden"]            = "bee_garden",
+    ["[fusing]"]              = "bee_garden",
 }
 
 ---------- HWID ----------
