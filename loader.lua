@@ -14,9 +14,9 @@ local Player = Players.LocalPlayer
 ---------- CONSTANTS ----------
 local BASE_URL = "https://keys.dallaswebstudio.net/script/"
 local KEY_API = "https://keys.dallaswebstudio.net"
-local KEY_LINK = "https://work.ink/2sxb/aurorahub"
-local KEY_LINK_2 = "https://link-target.net/4830946/EsV72pWXzNiC"
-local KEY_LINK_3 = "https://loot-link.com/s?QjZ6rfxa"
+local KEY_LINK = "https://aurorahub.net/generate"
+local KEY_LINK_2 = "https://aurorahub.net/generate"
+local KEY_LINK_3 = "https://aurorahub.net/generate"
 local KEY_FILE = "aurora_key.txt"
 
 ---------- GAME REGISTRY ----------
