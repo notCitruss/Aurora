@@ -32,6 +32,7 @@ local GAMES_BY_ID = {
     [132391015411211] = "split_or_steal",
     [77747658251236]  = "sailor_piece",
     [81535567274521]  = "bee_garden",
+    [119048529960596] = "restaurant_tycoon_3",
 }
 
 local GAMES_BY_NAME = {
@@ -49,6 +50,8 @@ local GAMES_BY_NAME = {
     ["sailor piece"]          = "sailor_piece",
     ["bee garden"]            = "bee_garden",
     ["[fusing]"]              = "bee_garden",
+    ["restaurant tycoon 3"]   = "restaurant_tycoon_3",
+    ["restaurant tycoon"]     = "restaurant_tycoon_3",
 }
 
 ---------- HWID ----------
