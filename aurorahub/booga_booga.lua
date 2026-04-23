@@ -54,10 +54,10 @@ if not getgenv().__AURORAHUB_BOOGA_CFG then
         AutoHeal = false, HealThreshold = 50,
         AutoEat = false, EatThreshold = 60,
         AutoEquipArmor = false,
-        TypingCheck = true,
+        TypingCheck = false,
 
         -- Combat
-        KillAura = false, KillAuraRange = 5, KillAuraMaxTargets = "1", KillAuraCooldown = 0.1,
+        KillAura = false, KillAuraRange = 15, KillAuraMaxTargets = "6", KillAuraCooldown = 0.05,
         LegitKillAura = false,
         FaceClosest = false, MoveToClosest = false,
         ResourceAura = false, ResourceAuraRange = 20, ResourceMaxTargets = "1", ResourceCooldown = 0.1,
@@ -122,7 +122,7 @@ else
     }
     for k, v in pairs(defaults) do if c[k] == nil then c[k] = v end end
     if type(c.PickupItems) ~= "table" then c.PickupItems = { Leaves = true, Log = true } end
-    if c.TypingCheck == nil then c.TypingCheck = true end
+    if c.TypingCheck == nil then c.TypingCheck = false end
 end
 local CFG = getgenv().__AURORAHUB_BOOGA_CFG
 
@@ -278,43 +278,20 @@ local function findInvItem(name)
     return nil
 end
 
----------- CHARACTER HANDLING ----------
-local wscon, hhcon, slopecon
-local function updws()
-    if wscon then wscon:Disconnect() end
-    if CFG.Walkspeed or CFG.JumpPower then
-        wscon = runs.RenderStepped:Connect(function()
-            if hum then
-                hum.WalkSpeed = CFG.Walkspeed and CFG.WalkspeedValue or 16
-                hum.JumpPower = CFG.JumpPower and CFG.JumpPowerValue or 50
-            end
-        end)
-    end
-end
-local function updhh()
-    if hhcon then hhcon:Disconnect() end
-    if CFG.HipHeight then
-        hhcon = runs.RenderStepped:Connect(function()
-            if hum then hum.HipHeight = CFG.HipHeightValue end
-        end)
-    end
-end
-local function updmsa()
-    if slopecon then slopecon:Disconnect() end
-    if CFG.NoMountainSlip or CFG.BetterClimber then
-        slopecon = runs.RenderStepped:Connect(function() if hum then hum.MaxSlopeAngle = 90 end end)
-    else
-        if hum then pcall(function() hum.MaxSlopeAngle = 46 end) end
-    end
-end
+---------- CHARACTER HANDLING (v5.1 fix: always-on loop reads CFG every frame) ----------
 plr.CharacterAdded:Connect(function(newChar)
     char = newChar
     root = char:WaitForChild("HumanoidRootPart")
     hum = char:WaitForChild("Humanoid")
-    task.wait(0.25)
-    updws(); updhh(); updmsa()
 end)
-updws(); updhh(); updmsa()
+local function updmsa() end  -- kept as no-op for existing callback signatures
+runs.RenderStepped:Connect(function()
+    if not alive() or not hum then return end
+    hum.WalkSpeed = CFG.Walkspeed and (tonumber(CFG.WalkspeedValue) or 16) or 16
+    hum.JumpPower = CFG.JumpPower and (tonumber(CFG.JumpPowerValue) or 50) or 50
+    hum.HipHeight = CFG.HipHeight and (tonumber(CFG.HipHeightValue) or 2) or 2
+    hum.MaxSlopeAngle = (CFG.NoMountainSlip or CFG.BetterClimber) and 89 or 46
+end)
 
 ---------- KILL AURA ----------
 task.spawn(function()
@@ -343,6 +320,10 @@ task.spawn(function()
             local selected = {}
             for i = 1, math.min(targetCount, #targets) do table.insert(selected, targets[i].eid) end
             run(selected, "swing"); S.swings = S.swings + 1
+            -- v5.1 fix: also fire typed packet per target (parallel channel)
+            if packets.SwingTool and packets.SwingTool.send then
+                for _, eid in ipairs(selected) do pcall(function() packets.SwingTool.send(eid) end) end
+            end
         end
         task.wait(cooldown)
     end
@@ -377,6 +358,9 @@ task.spawn(function()
             local selected = {}
             for i = 1, math.min(targetCount, #targets) do table.insert(selected, targets[i].eid) end
             run(selected, "swing"); S.swings = S.swings + 1
+            if packets.SwingTool and packets.SwingTool.send then
+                for _, eid in ipairs(selected) do pcall(function() packets.SwingTool.send(eid) end) end
+            end
         end
         task.wait(cooldown)
     end
@@ -408,6 +392,9 @@ task.spawn(function()
             local selected = {}
             for i = 1, math.min(targetCount, #targets) do table.insert(selected, targets[i].eid) end
             run(selected, "swing"); S.swings = S.swings + 1
+            if packets.SwingTool and packets.SwingTool.send then
+                for _, eid in ipairs(selected) do pcall(function() packets.SwingTool.send(eid) end) end
+            end
         end
         task.wait(cooldown)
     end
@@ -665,7 +652,7 @@ placestructure = function(gridsize)
     local spacing = 6.04
     for x = 0, gridsize - 1 do
         for z = 0, gridsize - 1 do
-            task.wait(0.3)
+            task.wait(0.05)  -- v5.1 fix: was 0.3s (77s for 16x16) → 0.05s (~13s)
             if not alive() then return end
             local position = startpos + Vector3.new(x * spacing, 0, z * spacing)
             if packets.PlaceStructure and packets.PlaceStructure.send then
@@ -802,37 +789,35 @@ local TOOL_PRIORITY = {
     rod = {"Fishing Rod"},
 }
 
----------- AUTO HEAL ----------
+---------- AUTO HEAL (v5.1 fix: 1.0s → 0.1s interval, spam-fire while low HP) ----------
 task.spawn(function()
     while alive() do
         if CFG.AutoHeal and hum and hum.MaxHealth > 0 then
             local pct = (hum.Health / hum.MaxHealth) * 100
             if pct <= (tonumber(CFG.HealThreshold) or 50) then
-                -- Try healing potion first via UseBagItem
-                local ord = findInvItem("Healing") or findInvItem("Greater Healing")
+                local ord = findInvItem("Healing") or findInvItem("Greater Healing") or findInvItem("Lesser Healing")
                 if ord and packets.UseBagItem and packets.UseBagItem.send then
                     pcall(function() packets.UseBagItem.send(ord) end); S.heals = S.heals + 1
+                else
+                    fireVoodoo("Energy Shield")
                 end
-                -- Fallback: Auto Voodoo Energy Shield if available
-                if not ord then fireVoodoo("Energy Shield") end
             end
         end
-        task.wait(1.0)
+        task.wait(0.1)
     end
 end)
 
----------- AUTO EAT ----------
+---------- AUTO EAT (v5.1 fix: 4.0s → 1.0s, fire if food found in inventory) ----------
 task.spawn(function()
     while alive() do
         if CFG.AutoEat then
-            -- Find best food in inventory (walks priority list)
             local list = getInventoryList()
             if list then
-                local bestOrd, bestName
+                local bestOrd
                 for _, food in ipairs(FOOD_PRIORITY) do
                     for _, child in ipairs(list:GetChildren()) do
                         if child:IsA("ImageLabel") and child.Name == food then
-                            bestOrd = child.LayoutOrder; bestName = food; break
+                            bestOrd = child.LayoutOrder; break
                         end
                     end
                     if bestOrd then break end
@@ -842,7 +827,7 @@ task.spawn(function()
                 end
             end
         end
-        task.wait(4.0)
+        task.wait(1.0)
     end
 end)
 
