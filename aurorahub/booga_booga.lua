@@ -249,31 +249,27 @@ local function run(stringg, packett, itemid)
     pcall(function() RS:WaitForChild("ByteNetReliable"):FireServer(buffer.fromstring(packet)) end)
 end
 
--- v5.3: Native click simulation — triggers game's OWN swing flow via VIM
+-- v5.4: throttled native click + per-packet fallback (fixes state buildup)
 local _VIM
 pcall(function() _VIM = game:GetService("VirtualInputManager") end)
 
-local function activateEquippedTool()
-    if not char then return end
-    for _, t in ipairs(char:GetChildren()) do
-        if t:IsA("Tool") then
-            pcall(function() t:Activate() end)
-            return true
-        end
-    end
-    return false
-end
+local _lastClick = 0
+local _lastMoveTo = 0
 
 local function simulateMouseClick()
     if not _VIM then return false end
-    local ok = pcall(function()
-        _VIM:SendMouseButtonEvent(0, 0, 0, true, game, 1)
-        _VIM:SendMouseButtonEvent(0, 0, 0, false, game, 1)
+    if tick() - _lastClick < 0.18 then return false end  -- throttle 5.5/s max (server accepts ~2-5/s anyway)
+    _lastClick = tick()
+    -- Use center-of-screen coords instead of (0,0) — safer for input processing
+    local vp = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(800, 600)
+    local cx, cy = vp.X / 2, vp.Y / 2
+    pcall(function()
+        _VIM:SendMouseButtonEvent(cx, cy, 0, true, game, 1)
+        _VIM:SendMouseButtonEvent(cx, cy, 0, false, game, 1)
     end)
-    return ok
+    return true
 end
 
--- v5.3: Face HRP toward target position (only Y-rotate so no flip)
 local function faceTarget(targetPos)
     if not root then return end
     pcall(function()
@@ -281,7 +277,16 @@ local function faceTarget(targetPos)
     end)
 end
 
--- v5.3: fireSwing now simulates click + packet backup, no tool swap inline
+local function moveToTargetThrottled(targetPos, minDist)
+    if not root or not hum then return end
+    local d = (targetPos - root.Position).Magnitude
+    if d < (minDist or 8) then return end  -- already close — don't spam MoveTo
+    if tick() - _lastMoveTo < 1.0 then return end  -- throttle 1/sec (MoveTo has 8s timeout)
+    _lastMoveTo = tick()
+    pcall(function() hum:MoveTo(targetPos) end)
+end
+
+-- v5.4: fireSwing — VIM click (throttled) + packet backup
 local function fireSwing(targets)
     if not targets or #targets == 0 then return end
     local arr = typeof(targets) == "table" and targets or { targets }
@@ -291,10 +296,7 @@ local function fireSwing(targets)
         if n then table.insert(nums, n) end
     end
     if #nums == 0 then return end
-    -- Primary: native tool activate + VIM click (triggers the game's own swing handler)
-    activateEquippedTool()
     simulateMouseClick()
-    -- Backup: custom byte packet (legacy path)
     pcall(function() run(nums, "swing") end)
 end
 
@@ -371,12 +373,9 @@ task.spawn(function()
             table.sort(targets, function(a, b) return a.dist < b.dist end)
             local selected = {}
             for i = 1, math.min(targetCount, #targets) do table.insert(selected, targets[i].eid) end
-            -- Auto face nearest (for swing arc to hit)
             faceTarget(nearestPart.Position)
-            -- Auto move towards nearest if too far
-            if CFG.MoveToClosest and hum then
-                pcall(function() hum:MoveTo(nearestPart.Position) end)
-            end
+            if CFG.MoveToClosest then moveToTargetThrottled(nearestPart.Position, 6) end
+            task.wait()  -- 1 frame for face rotation to replicate
             fireSwing(selected); S.swings = S.swings + 1
         end
         task.wait(cooldown)
@@ -885,7 +884,9 @@ task.spawn(function()
     end
 end)
 
----------- AUTO EAT (v5.2: Bloodfruit always, 0.01s interval) ----------
+---------- AUTO EAT (v5.4: Bloodfruit + UseBagItem + Consume packet chain) ----------
+local _Evt_UseBag  = RS:FindFirstChild("Events") and RS.Events:FindFirstChild("UseBagItem")
+local _Evt_Consume = RS:FindFirstChild("Events") and RS.Events:FindFirstChild("Consume")
 task.spawn(function()
     while alive() do
         if CFG.AutoEat then
@@ -897,8 +898,20 @@ task.spawn(function()
                         ord = child.LayoutOrder; break
                     end
                 end
-                if ord and packets.UseBagItem and packets.UseBagItem.send then
-                    pcall(function() packets.UseBagItem.send(ord) end); S.eats = S.eats + 1
+                if ord then
+                    -- Channel 1: typed UseBagItem
+                    if packets.UseBagItem and packets.UseBagItem.send then
+                        pcall(function() packets.UseBagItem.send(ord) end)
+                    end
+                    -- Channel 2: Events.UseBagItem
+                    if _Evt_UseBag then pcall(function() _Evt_UseBag:FireServer(ord) end) end
+                    -- Channel 3: Consume packet (the real eat trigger in Booga)
+                    if packets.Consume and packets.Consume.send then
+                        pcall(function() packets.Consume.send() end)
+                        pcall(function() packets.Consume.send(ord) end)
+                    end
+                    if _Evt_Consume then pcall(function() _Evt_Consume:FireServer() end) end
+                    S.eats = S.eats + 1
                 end
             end
         end
