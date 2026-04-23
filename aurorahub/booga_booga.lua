@@ -249,6 +249,67 @@ local function run(stringg, packett, itemid)
     pcall(function() RS:WaitForChild("ByteNetReliable"):FireServer(buffer.fromstring(packet)) end)
 end
 
+-- v5.2: Multi-channel swing fire (3 paths — one MUST work)
+local _EventsSwingTool = RS:FindFirstChild("Events") and RS.Events:FindFirstChild("SwingTool")
+local function fireSwing(targets)
+    if not targets or #targets == 0 then return end
+    -- Normalize to array
+    local arr = typeof(targets) == "table" and targets or { targets }
+    -- Coerce each to number (attributes sometimes string)
+    local nums = {}
+    for _, v in ipairs(arr) do
+        local n = tonumber(v)
+        if n then table.insert(nums, n) end
+    end
+    if #nums == 0 then return end
+    -- Channel 1: custom byte protocol (Herkle source path)
+    pcall(function() run(nums, "swing") end)
+    -- Channel 2: typed packet — try array form
+    if packets.SwingTool and packets.SwingTool.send then
+        pcall(function() packets.SwingTool.send(nums) end)
+        if #nums == 1 then
+            pcall(function() packets.SwingTool.send(nums[1]) end)
+        end
+    end
+    -- Channel 3: named Events remote
+    if _EventsSwingTool then
+        pcall(function() _EventsSwingTool:FireServer(nums) end)
+        if #nums == 1 then
+            pcall(function() _EventsSwingTool:FireServer(nums[1]) end)
+        end
+    end
+end
+
+-- v5.2: Auto-equip a weapon/pick if nothing equipped (by scanning inventory)
+local _lastAutoEquip = 0
+local function autoEquipForAura()
+    if tick() - _lastAutoEquip < 1 then return end  -- throttle 1 per sec
+    _lastAutoEquip = tick()
+    -- Check if tool is equipped (current character has a Tool child)
+    local hasTool = false
+    if char then
+        for _, c in ipairs(char:GetChildren()) do
+            if c:IsA("Tool") then hasTool = true; break end
+        end
+    end
+    if hasTool then return end
+    -- Pick first tool from priority
+    local list = getInventoryList(); if not list then return end
+    local priority = {"Emerald Blade","Pink Diamond Axe","Crossbow","Battle Axe","God Pick","Pink Diamond Pick",
+        "Mace","Iron Bow","Emerald Axe","Emerald Pick","Crystal Pick","Crystal Axe","Adurite Pick","Adurite Axe",
+        "Steel Axe","Steel Pick","Iron Axe","Iron Pick","Stone Axe","Stone Pick","Club","Sling","Wood Pick","Wood Axe"}
+    for _, tname in ipairs(priority) do
+        for _, child in ipairs(list:GetChildren()) do
+            if child:IsA("ImageLabel") and child.Name == tname then
+                if packets.UseBagItem and packets.UseBagItem.send then
+                    pcall(function() packets.UseBagItem.send(child.LayoutOrder) end)
+                end
+                return
+            end
+        end
+    end
+end
+
 local function getInventoryList()
     local p = plr:FindFirstChild("PlayerGui")
     local mg = p and p:FindFirstChild("MainGui")
@@ -319,11 +380,8 @@ task.spawn(function()
             table.sort(targets, function(a, b) return a.dist < b.dist end)
             local selected = {}
             for i = 1, math.min(targetCount, #targets) do table.insert(selected, targets[i].eid) end
-            run(selected, "swing"); S.swings = S.swings + 1
-            -- v5.1 fix: also fire typed packet per target (parallel channel)
-            if packets.SwingTool and packets.SwingTool.send then
-                for _, eid in ipairs(selected) do pcall(function() packets.SwingTool.send(eid) end) end
-            end
+            autoEquipForAura()
+            fireSwing(selected); S.swings = S.swings + 1
         end
         task.wait(cooldown)
     end
@@ -357,10 +415,8 @@ task.spawn(function()
             table.sort(targets, function(a, b) return a.dist < b.dist end)
             local selected = {}
             for i = 1, math.min(targetCount, #targets) do table.insert(selected, targets[i].eid) end
-            run(selected, "swing"); S.swings = S.swings + 1
-            if packets.SwingTool and packets.SwingTool.send then
-                for _, eid in ipairs(selected) do pcall(function() packets.SwingTool.send(eid) end) end
-            end
+            autoEquipForAura()
+            fireSwing(selected); S.swings = S.swings + 1
         end
         task.wait(cooldown)
     end
@@ -391,10 +447,8 @@ task.spawn(function()
             table.sort(targets, function(a, b) return a.dist < b.dist end)
             local selected = {}
             for i = 1, math.min(targetCount, #targets) do table.insert(selected, targets[i].eid) end
-            run(selected, "swing"); S.swings = S.swings + 1
-            if packets.SwingTool and packets.SwingTool.send then
-                for _, eid in ipairs(selected) do pcall(function() packets.SwingTool.send(eid) end) end
-            end
+            autoEquipForAura()
+            fireSwing(selected); S.swings = S.swings + 1
         end
         task.wait(cooldown)
     end
@@ -429,10 +483,10 @@ task.spawn(function()
             end
         end
         if #targets > 0 then
-            -- Chunk to batches of 6 (server may limit packet size)
-            for i = 1, math.min(#targets, 6) do
-                run(targets[i], "swing"); S.swings = S.swings + 1
-            end
+            autoEquipForAura()
+            local batch = {}
+            for i = 1, math.min(#targets, 6) do table.insert(batch, targets[i]) end
+            fireSwing(batch); S.swings = S.swings + 1
         end
         task.wait(0.15)
     end
@@ -807,27 +861,24 @@ task.spawn(function()
     end
 end)
 
----------- AUTO EAT (v5.1 fix: 4.0s → 1.0s, fire if food found in inventory) ----------
+---------- AUTO EAT (v5.2: Bloodfruit always, 0.01s interval) ----------
 task.spawn(function()
     while alive() do
         if CFG.AutoEat then
             local list = getInventoryList()
             if list then
-                local bestOrd
-                for _, food in ipairs(FOOD_PRIORITY) do
-                    for _, child in ipairs(list:GetChildren()) do
-                        if child:IsA("ImageLabel") and child.Name == food then
-                            bestOrd = child.LayoutOrder; break
-                        end
+                local ord
+                for _, child in ipairs(list:GetChildren()) do
+                    if child:IsA("ImageLabel") and child.Name == "Bloodfruit" then
+                        ord = child.LayoutOrder; break
                     end
-                    if bestOrd then break end
                 end
-                if bestOrd and packets.UseBagItem and packets.UseBagItem.send then
-                    pcall(function() packets.UseBagItem.send(bestOrd) end); S.eats = S.eats + 1
+                if ord and packets.UseBagItem and packets.UseBagItem.send then
+                    pcall(function() packets.UseBagItem.send(ord) end); S.eats = S.eats + 1
                 end
             end
         end
-        task.wait(1.0)
+        task.wait(0.01)
     end
 end)
 
@@ -926,7 +977,8 @@ task.spawn(function()
                     if pp and (pp.Position - pos).Magnitude < 40 then
                         for _ = 1, 12 do
                             if not CFG.AutoFarmGold or not alive() then break end
-                            run(r:GetAttribute("EntityID"), "swing"); S.swings = S.swings + 1
+                            autoEquipForAura()
+                            fireSwing({ r:GetAttribute("EntityID") }); S.swings = S.swings + 1
                             task.wait(0.3)
                         end
                         break
