@@ -249,65 +249,53 @@ local function run(stringg, packett, itemid)
     pcall(function() RS:WaitForChild("ByteNetReliable"):FireServer(buffer.fromstring(packet)) end)
 end
 
--- v5.2: Multi-channel swing fire (3 paths — one MUST work)
-local _EventsSwingTool = RS:FindFirstChild("Events") and RS.Events:FindFirstChild("SwingTool")
+-- v5.3: Native click simulation — triggers game's OWN swing flow via VIM
+local _VIM
+pcall(function() _VIM = game:GetService("VirtualInputManager") end)
+
+local function activateEquippedTool()
+    if not char then return end
+    for _, t in ipairs(char:GetChildren()) do
+        if t:IsA("Tool") then
+            pcall(function() t:Activate() end)
+            return true
+        end
+    end
+    return false
+end
+
+local function simulateMouseClick()
+    if not _VIM then return false end
+    local ok = pcall(function()
+        _VIM:SendMouseButtonEvent(0, 0, 0, true, game, 1)
+        _VIM:SendMouseButtonEvent(0, 0, 0, false, game, 1)
+    end)
+    return ok
+end
+
+-- v5.3: Face HRP toward target position (only Y-rotate so no flip)
+local function faceTarget(targetPos)
+    if not root then return end
+    pcall(function()
+        root.CFrame = CFrame.new(root.Position, Vector3.new(targetPos.X, root.Position.Y, targetPos.Z))
+    end)
+end
+
+-- v5.3: fireSwing now simulates click + packet backup, no tool swap inline
 local function fireSwing(targets)
     if not targets or #targets == 0 then return end
-    -- Normalize to array
     local arr = typeof(targets) == "table" and targets or { targets }
-    -- Coerce each to number (attributes sometimes string)
     local nums = {}
     for _, v in ipairs(arr) do
         local n = tonumber(v)
         if n then table.insert(nums, n) end
     end
     if #nums == 0 then return end
-    -- Channel 1: custom byte protocol (Herkle source path)
+    -- Primary: native tool activate + VIM click (triggers the game's own swing handler)
+    activateEquippedTool()
+    simulateMouseClick()
+    -- Backup: custom byte packet (legacy path)
     pcall(function() run(nums, "swing") end)
-    -- Channel 2: typed packet — try array form
-    if packets.SwingTool and packets.SwingTool.send then
-        pcall(function() packets.SwingTool.send(nums) end)
-        if #nums == 1 then
-            pcall(function() packets.SwingTool.send(nums[1]) end)
-        end
-    end
-    -- Channel 3: named Events remote
-    if _EventsSwingTool then
-        pcall(function() _EventsSwingTool:FireServer(nums) end)
-        if #nums == 1 then
-            pcall(function() _EventsSwingTool:FireServer(nums[1]) end)
-        end
-    end
-end
-
--- v5.2: Auto-equip a weapon/pick if nothing equipped (by scanning inventory)
-local _lastAutoEquip = 0
-local function autoEquipForAura()
-    if tick() - _lastAutoEquip < 1 then return end  -- throttle 1 per sec
-    _lastAutoEquip = tick()
-    -- Check if tool is equipped (current character has a Tool child)
-    local hasTool = false
-    if char then
-        for _, c in ipairs(char:GetChildren()) do
-            if c:IsA("Tool") then hasTool = true; break end
-        end
-    end
-    if hasTool then return end
-    -- Pick first tool from priority
-    local list = getInventoryList(); if not list then return end
-    local priority = {"Emerald Blade","Pink Diamond Axe","Crossbow","Battle Axe","God Pick","Pink Diamond Pick",
-        "Mace","Iron Bow","Emerald Axe","Emerald Pick","Crystal Pick","Crystal Axe","Adurite Pick","Adurite Axe",
-        "Steel Axe","Steel Pick","Iron Axe","Iron Pick","Stone Axe","Stone Pick","Club","Sling","Wood Pick","Wood Axe"}
-    for _, tname in ipairs(priority) do
-        for _, child in ipairs(list:GetChildren()) do
-            if child:IsA("ImageLabel") and child.Name == tname then
-                if packets.UseBagItem and packets.UseBagItem.send then
-                    pcall(function() packets.UseBagItem.send(child.LayoutOrder) end)
-                end
-                return
-            end
-        end
-    end
 end
 
 local function getInventoryList()
@@ -354,15 +342,15 @@ runs.RenderStepped:Connect(function()
     hum.MaxSlopeAngle = (CFG.NoMountainSlip or CFG.BetterClimber) and 89 or 46
 end)
 
----------- KILL AURA ----------
+---------- KILL AURA (v5.3 rewrite: native VIM click + auto face + auto move) ----------
 task.spawn(function()
     while alive() do
         if (not CFG.KillAura) or typingGuard() then task.wait(0.1); continue end
-        local range = tonumber(CFG.KillAuraRange) or 5
+        local range = tonumber(CFG.KillAuraRange) or 15
         local targetCount = tonumber(CFG.KillAuraMaxTargets) or 1
         local cooldown = tonumber(CFG.KillAuraCooldown) or 0.1
         if CFG.LegitKillAura then cooldown = cooldown + math.random() * 0.3 end
-        local targets = {}
+        local targets, nearestPart, nearestDist = {}, nil, math.huge
         for _, player in pairs(Players:GetPlayers()) do
             if player ~= plr then
                 local pf = workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild(player.Name)
@@ -371,16 +359,24 @@ task.spawn(function()
                     local eid = pf:GetAttribute("EntityID")
                     if rp and eid and root then
                         local dist = (rp.Position - root.Position).Magnitude
-                        if dist <= range then table.insert(targets, { eid = eid, dist = dist }) end
+                        if dist <= range then
+                            table.insert(targets, { eid = eid, dist = dist, rp = rp })
+                            if dist < nearestDist then nearestDist = dist; nearestPart = rp end
+                        end
                     end
                 end
             end
         end
-        if #targets > 0 then
+        if #targets > 0 and nearestPart then
             table.sort(targets, function(a, b) return a.dist < b.dist end)
             local selected = {}
             for i = 1, math.min(targetCount, #targets) do table.insert(selected, targets[i].eid) end
-            autoEquipForAura()
+            -- Auto face nearest (for swing arc to hit)
+            faceTarget(nearestPart.Position)
+            -- Auto move towards nearest if too far
+            if CFG.MoveToClosest and hum then
+                pcall(function() hum:MoveTo(nearestPart.Position) end)
+            end
             fireSwing(selected); S.swings = S.swings + 1
         end
         task.wait(cooldown)
@@ -415,7 +411,6 @@ task.spawn(function()
             table.sort(targets, function(a, b) return a.dist < b.dist end)
             local selected = {}
             for i = 1, math.min(targetCount, #targets) do table.insert(selected, targets[i].eid) end
-            autoEquipForAura()
             fireSwing(selected); S.swings = S.swings + 1
         end
         task.wait(cooldown)
@@ -447,7 +442,6 @@ task.spawn(function()
             table.sort(targets, function(a, b) return a.dist < b.dist end)
             local selected = {}
             for i = 1, math.min(targetCount, #targets) do table.insert(selected, targets[i].eid) end
-            autoEquipForAura()
             fireSwing(selected); S.swings = S.swings + 1
         end
         task.wait(cooldown)
@@ -483,7 +477,6 @@ task.spawn(function()
             end
         end
         if #targets > 0 then
-            autoEquipForAura()
             local batch = {}
             for i = 1, math.min(#targets, 6) do table.insert(batch, targets[i]) end
             fireSwing(batch); S.swings = S.swings + 1
@@ -702,13 +695,35 @@ placestructure = function(gridsize)
     if not plr or not plr.Character then return end
     local torso = plr.Character:FindFirstChild("HumanoidRootPart")
     if not torso then return end
+    -- v5.3 fix: equip Plant Box from inventory first (required for server to accept placement)
+    local list = getInventoryList()
+    local plantBoxOrd = nil
+    if list then
+        for _, child in ipairs(list:GetChildren()) do
+            if child:IsA("ImageLabel") and child.Name == "Plant Box" then
+                plantBoxOrd = child.LayoutOrder; break
+            end
+        end
+    end
+    if not plantBoxOrd then
+        warn("[Aurora] No Plant Box in inventory — craft some first (Leaves=2 + Wood=2 each)")
+        return
+    end
+    -- Equip the plant box
+    if packets.UseBagItem and packets.UseBagItem.send then
+        pcall(function() packets.UseBagItem.send(plantBoxOrd) end)
+    end
+    task.wait(0.5)  -- let equip register server-side
+
     local startpos = torso.Position - Vector3.new(0, 3, 0)
     local spacing = 6.04
+    local Evt_PS = RS:FindFirstChild("Events") and RS.Events:FindFirstChild("PlaceStructure")
     for x = 0, gridsize - 1 do
         for z = 0, gridsize - 1 do
-            task.wait(0.05)  -- v5.1 fix: was 0.3s (77s for 16x16) → 0.05s (~13s)
+            task.wait(0.05)
             if not alive() then return end
             local position = startpos + Vector3.new(x * spacing, 0, z * spacing)
+            -- Channel 1: typed packet
             if packets.PlaceStructure and packets.PlaceStructure.send then
                 pcall(function()
                     packets.PlaceStructure.send{
@@ -716,8 +731,17 @@ placestructure = function(gridsize)
                         yrot = 45, vec = position, isMobile = false,
                     }
                 end)
-                S.placed = S.placed + 1
             end
+            -- Channel 2: named Events remote (backup)
+            if Evt_PS then
+                pcall(function()
+                    Evt_PS:FireServer({
+                        buildingName = "Plant Box",
+                        yrot = 45, vec = position, isMobile = false,
+                    })
+                end)
+            end
+            S.placed = S.placed + 1
         end
     end
 end
@@ -977,7 +1001,9 @@ task.spawn(function()
                     if pp and (pp.Position - pos).Magnitude < 40 then
                         for _ = 1, 12 do
                             if not CFG.AutoFarmGold or not alive() then break end
-                            autoEquipForAura()
+                            -- Face the node + swing
+                            local gp = r.PrimaryPart or r:FindFirstChildWhichIsA("BasePart")
+                            if gp then faceTarget(gp.Position) end
                             fireSwing({ r:GetAttribute("EntityID") }); S.swings = S.swings + 1
                             task.wait(0.3)
                         end
