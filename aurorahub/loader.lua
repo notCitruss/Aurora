@@ -30,6 +30,7 @@ local GAMES_BY_ID = {
     [131756752872026] = "dive_down",
     [81535567274521]  = "bee_garden",
     [70845479499574]  = "bite_by_night",
+    [11729688377]     = "booga_booga",
 }
 
 local GAMES_BY_NAME = {
@@ -38,6 +39,8 @@ local GAMES_BY_NAME = {
     ["dive down"]             = "dive_down",
     ["bee garden"]            = "bee_garden",
     ["bite by night"]         = "bite_by_night",
+    ["booga booga"]           = "booga_booga",
+    ["booga"]                 = "booga_booga",
 }
 
 ---------- HWID ----------
