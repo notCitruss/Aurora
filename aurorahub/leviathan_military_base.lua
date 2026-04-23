@@ -90,35 +90,35 @@ local TraitRemotes    = TraitRes    and TraitRes:FindFirstChild("Remotes")
 local TutorialRemotes = TutorialRes and TutorialRes:FindFirstChild("Remotes")
 local GameMasterRemotes = GameMasterRes and GameMasterRes:FindFirstChild("Remotes")
 
--- Core feature remotes
-local RE_Collect           = safeRE(PlotRemotes, "Collect")
-local RE_PurchaseStructure = safeRE(VendorRemotes, "PurchaseStructure")
-local RE_PlaceStructure    = safeRE(PlotRemotes, "PlaceStructure")
-local RE_DestroyStructure  = safeRE(PlotRemotes, "DestroyStructure")
-local RE_OpenLootCrate     = safeRE(CrateRemotes, "OpenLootCrate")
-local RE_ToggleTenOpen     = safeRE(CrateRemotes, "ToggleTenOpen")
-local RE_PurchasePlot      = safeRE(PlotRemotes, "PurchasePlot")
-local RE_UpdateCollectors  = safeRE(PlotRemotes, "UpdateCollectors")
--- Rewards
-local RE_ClaimDaily     = safeRE(RewardRemotes, "ClaimDailyLoginReward")
-local RE_ClaimPlaytime  = safeRE(RewardRemotes, "ClaimPlaytimeReward")
-local RE_ClaimGroup     = safeRE(RewardRemotes, "ClaimGroupReward")
-local RE_RedeemCode     = safeRE(RewardRemotes, "RedeemCode")
--- Exploit probes (suspicious)
-local RE_RunCommand          = safeRE(GameMasterRemotes, "RunCommand")
-local RE_Rebirth             = safeRE(RebirthRemotes, "Rebirth")
-local RE_SkipTutorial        = safeRE(TutorialRemotes, "SkipTutorial")
-local RE_UpdateModifiers     = safeRE(ModifierRemotes, "UpdateModifiers")
-local RE_UpdateStructureMods = safeRE(ModifierRemotes, "UpdateStructureModifiers")
-local RE_UpdateUnitCap       = safeRE(UnitRemotes, "UpdateUnitCap")
-local RE_RerollTraits        = safeRE(TraitRemotes, "RerollTraits")
-local RE_DismantleRebirth    = safeRE(VendorRemotes, "DismantleRebirthStructure")
-local RE_DismantleMythic     = safeRE(VendorRemotes, "DismantleMythicStructure")
-local RE_PurchaseMythic      = safeRE(VendorRemotes, "PurchaseMythicStructure")
-local RE_PurchaseRebirthSt   = safeRE(VendorRemotes, "PurchaseRebirthStructure")
-local RE_PurchaseProduct     = safeRE(VendorRemotes, "PurchaseProduct")
-local RE_AttackTarget        = safeRE(UnitRemotes, "AttackTarget")
-local RE_RallyUnits          = safeRE(UnitRemotes, "RallyUnits")
+-- All remotes under a single R table to stay under Luau's 200-local limit
+local R = {
+    Collect           = safeRE(PlotRemotes, "Collect"),
+    PurchaseStructure = safeRE(VendorRemotes, "PurchaseStructure"),
+    PlaceStructure    = safeRE(PlotRemotes, "PlaceStructure"),
+    DestroyStructure  = safeRE(PlotRemotes, "DestroyStructure"),
+    OpenLootCrate     = safeRE(CrateRemotes, "OpenLootCrate"),
+    ToggleTenOpen     = safeRE(CrateRemotes, "ToggleTenOpen"),
+    PurchasePlot      = safeRE(PlotRemotes, "PurchasePlot"),
+    UpdateCollectors  = safeRE(PlotRemotes, "UpdateCollectors"),
+    ClaimDaily        = safeRE(RewardRemotes, "ClaimDailyLoginReward"),
+    ClaimPlaytime     = safeRE(RewardRemotes, "ClaimPlaytimeReward"),
+    ClaimGroup        = safeRE(RewardRemotes, "ClaimGroupReward"),
+    RedeemCode        = safeRE(RewardRemotes, "RedeemCode"),
+    RunCommand        = safeRE(GameMasterRemotes, "RunCommand"),
+    Rebirth           = safeRE(RebirthRemotes, "Rebirth"),
+    SkipTutorial      = safeRE(TutorialRemotes, "SkipTutorial"),
+    UpdateModifiers   = safeRE(ModifierRemotes, "UpdateModifiers"),
+    UpdateStructureMods = safeRE(ModifierRemotes, "UpdateStructureModifiers"),
+    UpdateUnitCap     = safeRE(UnitRemotes, "UpdateUnitCap"),
+    RerollTraits      = safeRE(TraitRemotes, "RerollTraits"),
+    DismantleRebirth  = safeRE(VendorRemotes, "DismantleRebirthStructure"),
+    DismantleMythic   = safeRE(VendorRemotes, "DismantleMythicStructure"),
+    PurchaseMythic    = safeRE(VendorRemotes, "PurchaseMythicStructure"),
+    PurchaseRebirthSt = safeRE(VendorRemotes, "PurchaseRebirthStructure"),
+    PurchaseProduct   = safeRE(VendorRemotes, "PurchaseProduct"),
+    AttackTarget      = safeRE(UnitRemotes, "AttackTarget"),
+    RallyUnits        = safeRE(UnitRemotes, "RallyUnits"),
+}
 
 ---------- CONFIG (v5: getgenv-backed for zombie-kill) ----------
 if not getgenv().__AURORAHUB_LEVIATHAN_CFG then
@@ -334,7 +334,7 @@ end
 
 ---------- CORE FEATURE FUNCTIONS ----------
 local function doCollectOnce()
-    if not RE_Collect then return end
+    if not R.Collect then return end
     local folder = getMyStructuresFolder()
     if not folder then return end
     local structs = folder:GetChildren()
@@ -343,7 +343,7 @@ local function doCollectOnce()
     for _, m in ipairs(structs) do
         if not alive() or not CFG.AutoCollect then break end
         if (not hasFilter) or CFG.CollectTypes[m.Name] then
-            pcall(function() RE_Collect:FireServer(m) end)
+            pcall(function() R.Collect:FireServer(m) end)
             S.collects = S.collects + 1
             task.wait(0.02)
         end
@@ -352,18 +352,18 @@ end
 
 local _placeCursor = 0
 local function doPurchaseOnce()
-    if not RE_PurchaseStructure then return end
+    if not R.PurchaseStructure then return end
     local anyFired = false
     for name, on in pairs(CFG.PurchaseStructures) do
         if not alive() or not CFG.AutoPurchase then break end
         if on then
-            pcall(function() RE_PurchaseStructure:FireServer(name) end)
+            pcall(function() R.PurchaseStructure:FireServer(name) end)
             S.purchases = S.purchases + 1
             anyFired = true
             task.wait(0.05)
 
             -- Optional auto-place right after purchase
-            if CFG.AutoPlaceAfterBuy and RE_PlaceStructure then
+            if CFG.AutoPlaceAfterBuy and R.PlaceStructure then
                 task.wait(0.1)
                 local origin = getPlotOriginCFrame()
                 if origin then
@@ -375,7 +375,7 @@ local function doPurchaseOnce()
                         3.2,
                         (row - 10) * 8
                     )
-                    pcall(function() RE_PlaceStructure:FireServer(name, offset) end)
+                    pcall(function() R.PlaceStructure:FireServer(name, offset) end)
                 end
             end
         end
@@ -384,14 +384,14 @@ local function doPurchaseOnce()
 end
 
 local function doOpenCratesOnce()
-    if not RE_OpenLootCrate then return end
-    if CFG.UseTenOpen and RE_ToggleTenOpen then
-        pcall(function() RE_ToggleTenOpen:FireServer(true) end)
+    if not R.OpenLootCrate then return end
+    if CFG.UseTenOpen and R.ToggleTenOpen then
+        pcall(function() R.ToggleTenOpen:FireServer(true) end)
     end
     for name, on in pairs(CFG.CrateTypes) do
         if not alive() or not CFG.AutoOpenCrates then break end
         if on then
-            pcall(function() RE_OpenLootCrate:FireServer(name) end)
+            pcall(function() R.OpenLootCrate:FireServer(name) end)
             S.crates = S.crates + 1
             task.wait(0.05)
         end
@@ -399,17 +399,17 @@ local function doOpenCratesOnce()
 end
 
 local function doClaimRewards()
-    if RE_ClaimDaily then pcall(function() RE_ClaimDaily:FireServer() end); S.rewards = S.rewards + 1 end
-    if RE_ClaimPlaytime then pcall(function() RE_ClaimPlaytime:FireServer() end); S.rewards = S.rewards + 1 end
-    if RE_ClaimGroup then pcall(function() RE_ClaimGroup:FireServer() end); S.rewards = S.rewards + 1 end
+    if R.ClaimDaily then pcall(function() R.ClaimDaily:FireServer() end); S.rewards = S.rewards + 1 end
+    if R.ClaimPlaytime then pcall(function() R.ClaimPlaytime:FireServer() end); S.rewards = S.rewards + 1 end
+    if R.ClaimGroup then pcall(function() R.ClaimGroup:FireServer() end); S.rewards = S.rewards + 1 end
 end
 
 local function doSkipTutorial()
-    if RE_SkipTutorial then pcall(function() RE_SkipTutorial:FireServer() end) end
+    if R.SkipTutorial then pcall(function() R.SkipTutorial:FireServer() end) end
 end
 
 local function doRebirth()
-    if RE_Rebirth then pcall(function() RE_Rebirth:FireServer() end) end
+    if R.Rebirth then pcall(function() R.Rebirth:FireServer() end) end
 end
 
 ---------- EXPLOIT PROBES ----------
@@ -426,10 +426,10 @@ local ADMIN_CMDS = {
 }
 
 local function expAdminProbe()
-    if not RE_RunCommand then logExp("admin", "remote missing"); return end
+    if not R.RunCommand then logExp("admin", "remote missing"); return end
     for _, cmd in ipairs(ADMIN_CMDS) do
         if not CFG.ExploitMaster or not CFG.ExploitAdminProbe then break end
-        pcall(function() RE_RunCommand:FireServer(cmd) end)
+        pcall(function() R.RunCommand:FireServer(cmd) end)
         S.exploitAttempts = S.exploitAttempts + 1
         task.wait(0.2)
     end
@@ -437,7 +437,7 @@ local function expAdminProbe()
 end
 
 local function expCollectorOverride()
-    if not RE_UpdateCollectors then logExp("collectors", "remote missing"); return end
+    if not R.UpdateCollectors then logExp("collectors", "remote missing"); return end
     -- Try a few arg shapes — server will reject unknown
     local shapes = {
         {999},
@@ -447,7 +447,7 @@ local function expCollectorOverride()
     }
     for _, args in ipairs(shapes) do
         if not CFG.ExploitMaster or not CFG.ExploitCollectorOverride then break end
-        pcall(function() RE_UpdateCollectors:FireServer(table.unpack(args)) end)
+        pcall(function() R.UpdateCollectors:FireServer(table.unpack(args)) end)
         S.exploitAttempts = S.exploitAttempts + 1
         task.wait(0.2)
     end
@@ -455,11 +455,11 @@ local function expCollectorOverride()
 end
 
 local function expUnitCapBoost()
-    if not RE_UpdateUnitCap then logExp("unitcap", "remote missing"); return end
+    if not R.UpdateUnitCap then logExp("unitcap", "remote missing"); return end
     local shapes = { {999}, {{cap = 999}}, {"cap", 999} }
     for _, args in ipairs(shapes) do
         if not CFG.ExploitMaster or not CFG.ExploitUnitCapBoost then break end
-        pcall(function() RE_UpdateUnitCap:FireServer(table.unpack(args)) end)
+        pcall(function() R.UpdateUnitCap:FireServer(table.unpack(args)) end)
         S.exploitAttempts = S.exploitAttempts + 1
         task.wait(0.2)
     end
@@ -467,7 +467,7 @@ local function expUnitCapBoost()
 end
 
 local function expModifierInjection()
-    if not RE_UpdateModifiers then logExp("modifiers", "remote missing"); return end
+    if not R.UpdateModifiers then logExp("modifiers", "remote missing"); return end
     local shapes = {
         {{CollectionMultiplier = 100}},
         {"CollectionMultiplier", 100},
@@ -476,7 +476,7 @@ local function expModifierInjection()
     }
     for _, args in ipairs(shapes) do
         if not CFG.ExploitMaster or not CFG.ExploitModifierInjection then break end
-        pcall(function() RE_UpdateModifiers:FireServer(table.unpack(args)) end)
+        pcall(function() R.UpdateModifiers:FireServer(table.unpack(args)) end)
         S.exploitAttempts = S.exploitAttempts + 1
         task.wait(0.2)
     end
@@ -486,9 +486,9 @@ end
 local function expRewardSpam()
     for _ = 1, 15 do
         if not CFG.ExploitMaster or not CFG.ExploitRewardSpam then break end
-        if RE_ClaimDaily    then pcall(function() RE_ClaimDaily:FireServer() end)    end
-        if RE_ClaimPlaytime then pcall(function() RE_ClaimPlaytime:FireServer() end) end
-        if RE_ClaimGroup    then pcall(function() RE_ClaimGroup:FireServer() end)    end
+        if R.ClaimDaily    then pcall(function() R.ClaimDaily:FireServer() end)    end
+        if R.ClaimPlaytime then pcall(function() R.ClaimPlaytime:FireServer() end) end
+        if R.ClaimGroup    then pcall(function() R.ClaimGroup:FireServer() end)    end
         S.exploitAttempts = S.exploitAttempts + 3
         task.wait(0.3)
     end
@@ -496,10 +496,10 @@ local function expRewardSpam()
 end
 
 local function expFreeRebirth()
-    if not RE_Rebirth then logExp("rebirth", "remote missing"); return end
+    if not R.Rebirth then logExp("rebirth", "remote missing"); return end
     for _ = 1, 3 do
         if not CFG.ExploitMaster or not CFG.ExploitFreeRebirth then break end
-        pcall(function() RE_Rebirth:FireServer() end)
+        pcall(function() R.Rebirth:FireServer() end)
         S.exploitAttempts = S.exploitAttempts + 1
         task.wait(0.4)
     end
@@ -507,10 +507,10 @@ local function expFreeRebirth()
 end
 
 local function expFreeReroll()
-    if not RE_RerollTraits then logExp("reroll", "remote missing"); return end
+    if not R.RerollTraits then logExp("reroll", "remote missing"); return end
     for _ = 1, 10 do
         if not CFG.ExploitMaster or not CFG.ExploitFreeReroll then break end
-        pcall(function() RE_RerollTraits:FireServer() end)
+        pcall(function() R.RerollTraits:FireServer() end)
         S.exploitAttempts = S.exploitAttempts + 1
         task.wait(0.3)
     end
@@ -518,14 +518,14 @@ local function expFreeReroll()
 end
 
 local function expPlaceFree()
-    if not RE_PlaceStructure then logExp("place-free", "remote missing"); return end
+    if not R.PlaceStructure then logExp("place-free", "remote missing"); return end
     local origin = getPlotOriginCFrame()
     if not origin then logExp("place-free", "no plot origin"); return end
     -- Try placing each known structure without purchasing first
     for i, name in ipairs(STRUCTURE_NAMES) do
         if not CFG.ExploitMaster or not CFG.ExploitPlaceFree then break end
         local offset = origin * CFrame.new(i * 4 - 40, 3.2, 40)
-        pcall(function() RE_PlaceStructure:FireServer(name, offset) end)
+        pcall(function() R.PlaceStructure:FireServer(name, offset) end)
         S.exploitAttempts = S.exploitAttempts + 1
         task.wait(0.1)
         if i >= 5 then break end  -- sample only
@@ -534,14 +534,14 @@ local function expPlaceFree()
 end
 
 local function expDismantleDupe()
-    if not RE_PurchaseStructure or not RE_DismantleRebirth then logExp("dupe", "remotes missing"); return end
+    if not R.PurchaseStructure or not R.DismantleRebirth then logExp("dupe", "remotes missing"); return end
     -- Buy → dismantle loop on cheapest known
     local testName = STRUCTURE_NAMES[1] or "Storage Facility"
     for _ = 1, 5 do
         if not CFG.ExploitMaster or not CFG.ExploitDismantleDupe then break end
-        pcall(function() RE_PurchaseStructure:FireServer(testName) end)
+        pcall(function() R.PurchaseStructure:FireServer(testName) end)
         task.wait(0.15)
-        pcall(function() RE_DismantleRebirth:FireServer(testName) end)
+        pcall(function() R.DismantleRebirth:FireServer(testName) end)
         S.exploitAttempts = S.exploitAttempts + 2
         task.wait(0.3)
     end
@@ -702,6 +702,8 @@ end)
 -- ========================================================================
 -- V5 3-COLUMN UI
 -- ========================================================================
+local U = {}
+
 local C = {
     bg       = Color3.fromRGB(8,   8,  15),
     bg2      = Color3.fromRGB(12, 12,  24),
@@ -1429,22 +1431,22 @@ create("TextLabel", {
 }, scrolls["Main_alpha"])
 
 sectionHeader(scrolls["Main_beta"], "●", "Status", nMb())
-local _infoMode      = infoRow(scrolls["Main_beta"], "Mode",     "Idle", C.pink,  nMb())
-local _infoRuntime   = infoRow(scrolls["Main_beta"], "Runtime",  "0m",   C.text2, nMb())
-local _infoStructs   = infoRow(scrolls["Main_beta"], "Structures On Plot", "—", C.text, nMb())
+U.infoMode = infoRow(scrolls["Main_beta"], "Mode",     "Idle", C.pink,  nMb())
+U.infoRuntime = infoRow(scrolls["Main_beta"], "Runtime",  "0m",   C.text2, nMb())
+U.infoStructs = infoRow(scrolls["Main_beta"], "Structures On Plot", "—", C.text, nMb())
 
 sectionHeader(scrolls["Main_beta"], "◉", "Session Totals", nMb())
-local _infoCollects  = infoRow(scrolls["Main_beta"], "Collects",  "0", C.pink, nMb())
-local _infoPurch     = infoRow(scrolls["Main_beta"], "Purchases", "0", C.pink, nMb())
-local _infoCrates    = infoRow(scrolls["Main_beta"], "Crates",    "0", C.pink, nMb())
-local _infoRewards   = infoRow(scrolls["Main_beta"], "Rewards",   "0", C.purple, nMb())
+U.infoCollects = infoRow(scrolls["Main_beta"], "Collects",  "0", C.pink, nMb())
+U.infoPurch = infoRow(scrolls["Main_beta"], "Purchases", "0", C.pink, nMb())
+U.infoCrates = infoRow(scrolls["Main_beta"], "Crates",    "0", C.pink, nMb())
+U.infoRewards = infoRow(scrolls["Main_beta"], "Rewards",   "0", C.purple, nMb())
 
 sectionHeader(scrolls["Main_beta"], "✦", "Remote Health", nMb())
-infoRow(scrolls["Main_beta"], "Collect",          RE_Collect          and "OK" or "MISSING", RE_Collect          and C.green or C.red, nMb())
-infoRow(scrolls["Main_beta"], "PurchaseStructure",RE_PurchaseStructure and "OK" or "MISSING", RE_PurchaseStructure and C.green or C.red, nMb())
-infoRow(scrolls["Main_beta"], "PlaceStructure",   RE_PlaceStructure   and "OK" or "MISSING", RE_PlaceStructure   and C.green or C.red, nMb())
-infoRow(scrolls["Main_beta"], "OpenLootCrate",    RE_OpenLootCrate    and "OK" or "MISSING", RE_OpenLootCrate    and C.green or C.red, nMb())
-infoRow(scrolls["Main_beta"], "ToggleTenOpen",    RE_ToggleTenOpen    and "OK" or "MISSING", RE_ToggleTenOpen    and C.green or C.red, nMb())
+infoRow(scrolls["Main_beta"], "Collect",          R.Collect          and "OK" or "MISSING", R.Collect          and C.green or C.red, nMb())
+infoRow(scrolls["Main_beta"], "PurchaseStructure",R.PurchaseStructure and "OK" or "MISSING", R.PurchaseStructure and C.green or C.red, nMb())
+infoRow(scrolls["Main_beta"], "PlaceStructure",   R.PlaceStructure   and "OK" or "MISSING", R.PlaceStructure   and C.green or C.red, nMb())
+infoRow(scrolls["Main_beta"], "OpenLootCrate",    R.OpenLootCrate    and "OK" or "MISSING", R.OpenLootCrate    and C.green or C.red, nMb())
+infoRow(scrolls["Main_beta"], "ToggleTenOpen",    R.ToggleTenOpen    and "OK" or "MISSING", R.ToggleTenOpen    and C.green or C.red, nMb())
 
 --========================================================================
 -- POPULATE: VENDOR
@@ -1479,7 +1481,7 @@ create("TextLabel", {
 
 sectionHeader(scrolls["Vendor_beta"], "●", "Vendor", nVb())
 infoRow(scrolls["Vendor_beta"], "Structure Count", tostring(#STRUCTURE_NAMES), C.text, nVb())
-local _infoSelected = infoRow(scrolls["Vendor_beta"], "Selected", "0", C.pink, nVb())
+U.infoSelected = infoRow(scrolls["Vendor_beta"], "Selected", "0", C.pink, nVb())
 
 sectionHeader(scrolls["Vendor_beta"], "◉", "Known Structures", nVb())
 for i, name in ipairs(STRUCTURE_NAMES) do
@@ -1509,7 +1511,7 @@ actionBtn(scrolls["Crates_alpha"], "Open Once Now", C.bg3, nCa(), function()
 end)
 for _, crateName in ipairs(CRATE_NAMES) do
     actionBtn(scrolls["Crates_alpha"], "Open " .. crateName, C.bg3, nCa(), function()
-        if RE_OpenLootCrate then pcall(function() RE_OpenLootCrate:FireServer(crateName) end); S.crates = S.crates + 1 end
+        if R.OpenLootCrate then pcall(function() R.OpenLootCrate:FireServer(crateName) end); S.crates = S.crates + 1 end
     end)
 end
 
@@ -1523,8 +1525,8 @@ create("TextLabel", {
 }, scrolls["Crates_alpha"])
 
 sectionHeader(scrolls["Crates_beta"], "●", "Session", nCb())
-local _infoCratesTotal = infoRow(scrolls["Crates_beta"], "Crates Opened",   "0", C.pink,   nCb())
-local _infoCratesRate  = infoRow(scrolls["Crates_beta"], "Rate /min",       "—", C.text2,  nCb())
+U.infoCratesTotal = infoRow(scrolls["Crates_beta"], "Crates Opened",   "0", C.pink,   nCb())
+U.infoCratesRate = infoRow(scrolls["Crates_beta"], "Rate /min",       "—", C.text2,  nCb())
 
 sectionHeader(scrolls["Crates_beta"], "◉", "Types Detected", nCb())
 infoRow(scrolls["Crates_beta"], "Types Count", tostring(#CRATE_NAMES), C.text, nCb())
@@ -1563,31 +1565,31 @@ toggleRow    (scrolls["Exploits_alpha"], "Dismantle Dupe Test",   "ExploitDisman
 
 sectionHeader(scrolls["Exploits_alpha"], "▣", "One-Shot Manual", nEa())
 actionBtn(scrolls["Exploits_alpha"], "Fire /help (admin)", C.bg3, nEa(), function()
-    if RE_RunCommand then pcall(function() RE_RunCommand:FireServer("/help") end); logExp("manual", "/help") end
+    if R.RunCommand then pcall(function() R.RunCommand:FireServer("/help") end); logExp("manual", "/help") end
 end)
 actionBtn(scrolls["Exploits_alpha"], "Fire Rebirth once", C.bg3, nEa(), function()
-    if RE_Rebirth then pcall(function() RE_Rebirth:FireServer() end); logExp("manual", "Rebirth") end
+    if R.Rebirth then pcall(function() R.Rebirth:FireServer() end); logExp("manual", "Rebirth") end
 end)
 actionBtn(scrolls["Exploits_alpha"], "Fire RerollTraits once", C.bg3, nEa(), function()
-    if RE_RerollTraits then pcall(function() RE_RerollTraits:FireServer() end); logExp("manual", "RerollTraits") end
+    if R.RerollTraits then pcall(function() R.RerollTraits:FireServer() end); logExp("manual", "RerollTraits") end
 end)
 
 sectionHeader(scrolls["Exploits_beta"], "●", "Probe Status", nEb())
-local _infoExpAttempts = infoRow(scrolls["Exploits_beta"], "Attempts", "0", C.pink, nEb())
-local _infoExpHits     = infoRow(scrolls["Exploits_beta"], "Hits",     "0", C.green, nEb())
+U.infoExpAttempts = infoRow(scrolls["Exploits_beta"], "Attempts", "0", C.pink, nEb())
+U.infoExpHits = infoRow(scrolls["Exploits_beta"], "Hits",     "0", C.green, nEb())
 
 sectionHeader(scrolls["Exploits_beta"], "◉", "Remote Presence", nEb())
-infoRow(scrolls["Exploits_beta"], "RunCommand",         RE_RunCommand          and "Present" or "Missing", RE_RunCommand          and C.green or C.red, nEb())
-infoRow(scrolls["Exploits_beta"], "UpdateCollectors",   RE_UpdateCollectors    and "Present" or "Missing", RE_UpdateCollectors    and C.green or C.red, nEb())
-infoRow(scrolls["Exploits_beta"], "UpdateUnitCap",      RE_UpdateUnitCap       and "Present" or "Missing", RE_UpdateUnitCap       and C.green or C.red, nEb())
-infoRow(scrolls["Exploits_beta"], "UpdateModifiers",    RE_UpdateModifiers     and "Present" or "Missing", RE_UpdateModifiers     and C.green or C.red, nEb())
-infoRow(scrolls["Exploits_beta"], "RerollTraits",       RE_RerollTraits        and "Present" or "Missing", RE_RerollTraits        and C.green or C.red, nEb())
-infoRow(scrolls["Exploits_beta"], "Rebirth",            RE_Rebirth             and "Present" or "Missing", RE_Rebirth             and C.green or C.red, nEb())
-infoRow(scrolls["Exploits_beta"], "DismantleRebirth",   RE_DismantleRebirth    and "Present" or "Missing", RE_DismantleRebirth    and C.green or C.red, nEb())
-infoRow(scrolls["Exploits_beta"], "PlaceStructure",     RE_PlaceStructure      and "Present" or "Missing", RE_PlaceStructure      and C.green or C.red, nEb())
+infoRow(scrolls["Exploits_beta"], "RunCommand",         R.RunCommand          and "Present" or "Missing", R.RunCommand          and C.green or C.red, nEb())
+infoRow(scrolls["Exploits_beta"], "UpdateCollectors",   R.UpdateCollectors    and "Present" or "Missing", R.UpdateCollectors    and C.green or C.red, nEb())
+infoRow(scrolls["Exploits_beta"], "UpdateUnitCap",      R.UpdateUnitCap       and "Present" or "Missing", R.UpdateUnitCap       and C.green or C.red, nEb())
+infoRow(scrolls["Exploits_beta"], "UpdateModifiers",    R.UpdateModifiers     and "Present" or "Missing", R.UpdateModifiers     and C.green or C.red, nEb())
+infoRow(scrolls["Exploits_beta"], "RerollTraits",       R.RerollTraits        and "Present" or "Missing", R.RerollTraits        and C.green or C.red, nEb())
+infoRow(scrolls["Exploits_beta"], "Rebirth",            R.Rebirth             and "Present" or "Missing", R.Rebirth             and C.green or C.red, nEb())
+infoRow(scrolls["Exploits_beta"], "DismantleRebirth",   R.DismantleRebirth    and "Present" or "Missing", R.DismantleRebirth    and C.green or C.red, nEb())
+infoRow(scrolls["Exploits_beta"], "PlaceStructure",     R.PlaceStructure      and "Present" or "Missing", R.PlaceStructure      and C.green or C.red, nEb())
 
 sectionHeader(scrolls["Exploits_beta"], "✦", "Probe Log", nEb())
-local _expLogLabel = create("TextLabel", {
+U.expLogLabel = create("TextLabel", {
     Size = UDim2.new(1, 0, 0, 260),
     BackgroundTransparency = 1,
     Text = "(no probes fired yet)",
@@ -1622,14 +1624,14 @@ create("TextLabel", {
 }, scrolls["Misc_alpha"])
 
 sectionHeader(scrolls["Misc_beta"], "●", "Manual Actions", nUb())
-actionBtn(scrolls["Misc_beta"], "Claim Daily",    C.bg3, nUb(), function() if RE_ClaimDaily    then pcall(function() RE_ClaimDaily:FireServer() end) end end)
-actionBtn(scrolls["Misc_beta"], "Claim Playtime", C.bg3, nUb(), function() if RE_ClaimPlaytime then pcall(function() RE_ClaimPlaytime:FireServer() end) end end)
-actionBtn(scrolls["Misc_beta"], "Claim Group",    C.bg3, nUb(), function() if RE_ClaimGroup    then pcall(function() RE_ClaimGroup:FireServer() end) end end)
+actionBtn(scrolls["Misc_beta"], "Claim Daily",    C.bg3, nUb(), function() if R.ClaimDaily    then pcall(function() R.ClaimDaily:FireServer() end) end end)
+actionBtn(scrolls["Misc_beta"], "Claim Playtime", C.bg3, nUb(), function() if R.ClaimPlaytime then pcall(function() R.ClaimPlaytime:FireServer() end) end end)
+actionBtn(scrolls["Misc_beta"], "Claim Group",    C.bg3, nUb(), function() if R.ClaimGroup    then pcall(function() R.ClaimGroup:FireServer() end) end end)
 actionBtn(scrolls["Misc_beta"], "Skip Tutorial",  C.bg3, nUb(), doSkipTutorial)
 
 sectionHeader(scrolls["Misc_beta"], "◉", "Stats", nUb())
-local _infoHealth = infoRow(scrolls["Misc_beta"], "Health", "—", C.text, nUb())
-local _infoSpeed  = infoRow(scrolls["Misc_beta"], "Speed",  "16", C.text, nUb())
+U.infoHealth = infoRow(scrolls["Misc_beta"], "Health", "—", C.text, nUb())
+U.infoSpeed = infoRow(scrolls["Misc_beta"], "Speed",  "16", C.text, nUb())
 
 --========================================================================
 -- POPULATE: SETTINGS
@@ -1678,7 +1680,7 @@ infoRow(scrolls["Settings_beta"], "Save",    _cfgFileName,                C.text
 infoRow(scrolls["Settings_beta"], "Network", "Named RE (Replica)",        C.text3, nSb())
 
 sectionHeader(scrolls["Settings_beta"], "◆", "Active Features", nSb())
-local _cfgActiveLabel = create("TextLabel", {
+U.cfgActiveLabel = create("TextLabel", {
     Name = "ActiveList", Size = UDim2.new(1, 0, 0, 220),
     BackgroundTransparency = 1, Text = "None",
     Font = F_SANS, TextSize = 11, TextColor3 = C.text2,
@@ -1692,24 +1694,24 @@ local _cfgActiveLabel = create("TextLabel", {
 local oL = 0
 local function nL() oL = oL + 1; return oL end
 sectionHeader(liveScroll, "◉", "Session", nL())
-local _liveRuntime = infoRow(liveScroll, "Runtime", "0m",   C.text2, nL())
-local _liveStatus  = infoRow(liveScroll, "Status",  "Idle", C.pink,  nL())
+U.liveRuntime = infoRow(liveScroll, "Runtime", "0m",   C.text2, nL())
+U.liveStatus = infoRow(liveScroll, "Status",  "Idle", C.pink,  nL())
 
 sectionHeader(liveScroll, "●", "Player", nL())
-local _liveHealth  = infoRow(liveScroll, "Health", "—", C.text,  nL())
-local _liveSpeed   = infoRow(liveScroll, "Speed",  "16", C.text, nL())
+U.liveHealth = infoRow(liveScroll, "Health", "—", C.text,  nL())
+U.liveSpeed = infoRow(liveScroll, "Speed",  "16", C.text, nL())
 
 sectionHeader(liveScroll, "▣", "Farm", nL())
-local _liveCollects = infoRow(liveScroll, "Collects",  "0", C.pink,  nL())
-local _livePurch    = infoRow(liveScroll, "Purchases", "0", C.pink,  nL())
-local _liveCrates   = infoRow(liveScroll, "Crates",    "0", C.pink,  nL())
+U.liveCollects = infoRow(liveScroll, "Collects",  "0", C.pink,  nL())
+U.livePurch = infoRow(liveScroll, "Purchases", "0", C.pink,  nL())
+U.liveCrates = infoRow(liveScroll, "Crates",    "0", C.pink,  nL())
 
 sectionHeader(liveScroll, "◆", "Plot", nL())
-local _liveStructs  = infoRow(liveScroll, "Structures","—", C.text,  nL())
+U.liveStructs = infoRow(liveScroll, "Structures","—", C.text,  nL())
 
 sectionHeader(liveScroll, "✦", "Exploits", nL())
-local _liveExpA = infoRow(liveScroll, "Attempts", "0", C.red, nL())
-local _liveExpH = infoRow(liveScroll, "Hits",     "0", C.green, nL())
+U.liveExpA = infoRow(liveScroll, "Attempts", "0", C.red, nL())
+U.liveExpH = infoRow(liveScroll, "Hits",     "0", C.green, nL())
 
 --========================================================================
 -- PILL
@@ -1771,7 +1773,7 @@ create("TextLabel", {
     BackgroundTransparency = 1, Text = "·",
     Font = F_SANS_BOLD, TextSize = 14, TextColor3 = C.text3,
 }, pill)
-local _pillActive = create("TextLabel", {
+U.pillActive = create("TextLabel", {
     Size = UDim2.fromOffset(56, 36), Position = UDim2.fromOffset(92, 0),
     BackgroundTransparency = 1, Text = "0 active",
     Font = F_SANS_SEMI, TextSize = 11, TextColor3 = C.text,
@@ -1966,46 +1968,46 @@ task.spawn(function()
             end
 
             -- Main tab
-            _infoMode.Text     = mode
-            _infoRuntime.Text  = rtime
-            _infoStructs.Text  = tostring(S.currentPlotStructures)
-            _infoCollects.Text = fmt(S.collects)
-            _infoPurch.Text    = tostring(S.purchases)
-            _infoCrates.Text   = tostring(S.crates)
-            _infoRewards.Text  = tostring(S.rewards)
+            U.infoMode.Text     = mode
+            U.infoRuntime.Text  = rtime
+            U.infoStructs.Text  = tostring(S.currentPlotStructures)
+            U.infoCollects.Text = fmt(S.collects)
+            U.infoPurch.Text    = tostring(S.purchases)
+            U.infoCrates.Text   = tostring(S.crates)
+            U.infoRewards.Text  = tostring(S.rewards)
 
             -- Vendor
-            _infoSelected.Text = tostring(sel)
+            U.infoSelected.Text = tostring(sel)
 
             -- Crates
-            _infoCratesTotal.Text = tostring(S.crates)
-            _infoCratesRate.Text  = rate .. "/min"
+            U.infoCratesTotal.Text = tostring(S.crates)
+            U.infoCratesRate.Text  = rate .. "/min"
 
             -- Exploits
-            _infoExpAttempts.Text = tostring(S.exploitAttempts)
-            _infoExpHits.Text     = tostring(S.exploitHits)
+            U.infoExpAttempts.Text = tostring(S.exploitAttempts)
+            U.infoExpHits.Text     = tostring(S.exploitHits)
 
             if #_expLog > 0 then
                 local out = {}
                 for i = 1, math.min(18, #_expLog) do table.insert(out, _expLog[i]) end
-                _expLogLabel.Text = table.concat(out, "\n")
+                U.expLogLabel.Text = table.concat(out, "\n")
             end
 
             -- Misc
-            _infoHealth.Text = hpTxt
-            _infoSpeed.Text  = spdTxt
+            U.infoHealth.Text = hpTxt
+            U.infoSpeed.Text  = spdTxt
 
             -- Live
-            _liveRuntime.Text  = rtime
-            _liveStatus.Text   = mode
-            _liveHealth.Text   = hpTxt
-            _liveSpeed.Text    = spdTxt
-            _liveCollects.Text = fmt(S.collects)
-            _livePurch.Text    = tostring(S.purchases)
-            _liveCrates.Text   = tostring(S.crates)
-            _liveStructs.Text  = tostring(S.currentPlotStructures)
-            _liveExpA.Text     = tostring(S.exploitAttempts)
-            _liveExpH.Text     = tostring(S.exploitHits)
+            U.liveRuntime.Text  = rtime
+            U.liveStatus.Text   = mode
+            U.liveHealth.Text   = hpTxt
+            U.liveSpeed.Text    = spdTxt
+            U.liveCollects.Text = fmt(S.collects)
+            U.livePurch.Text    = tostring(S.purchases)
+            U.liveCrates.Text   = tostring(S.crates)
+            U.liveStructs.Text  = tostring(S.currentPlotStructures)
+            U.liveExpA.Text     = tostring(S.exploitAttempts)
+            U.liveExpH.Text     = tostring(S.exploitHits)
 
             -- Active list + pill
             local sortedActive = {}
@@ -2015,8 +2017,8 @@ task.spawn(function()
                 end
             end
             table.sort(sortedActive)
-            _cfgActiveLabel.Text = #sortedActive > 0 and table.concat(sortedActive, "\n") or "None"
-            _pillActive.Text = #sortedActive .. " active"
+            U.cfgActiveLabel.Text = #sortedActive > 0 and table.concat(sortedActive, "\n") or "None"
+            U.pillActive.Text = #sortedActive .. " active"
         end)
     end
 end)
