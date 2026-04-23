@@ -33,7 +33,6 @@ local GAMES_BY_ID = {
     [77747658251236]  = "sailor_piece",
     [81535567274521]  = "bee_garden",
     [119048529960596] = "restaurant_tycoon_3",
-    [91440994157417]  = "leviathan_military_base",
 }
 
 local GAMES_BY_NAME = {
@@ -53,9 +52,6 @@ local GAMES_BY_NAME = {
     ["[fusing]"]              = "bee_garden",
     ["restaurant tycoon 3"]   = "restaurant_tycoon_3",
     ["restaurant tycoon"]     = "restaurant_tycoon_3",
-    ["leviathan"]             = "leviathan_military_base",
-    ["build a military base"] = "leviathan_military_base",
-    ["military base"]         = "leviathan_military_base",
 }
 
 ---------- HWID ----------

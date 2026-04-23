@@ -30,7 +30,6 @@ local GAMES_BY_ID = {
     [131756752872026] = "dive_down",
     [81535567274521]  = "bee_garden",
     [70845479499574]  = "bite_by_night",
-    [91440994157417]  = "leviathan_military_base",
 }
 
 local GAMES_BY_NAME = {
@@ -39,9 +38,6 @@ local GAMES_BY_NAME = {
     ["dive down"]             = "dive_down",
     ["bee garden"]            = "bee_garden",
     ["bite by night"]         = "bite_by_night",
-    ["leviathan"]             = "leviathan_military_base",
-    ["build a military base"] = "leviathan_military_base",
-    ["military base"]         = "leviathan_military_base",
 }
 
 ---------- HWID ----------
