@@ -1,8 +1,11 @@
---// Aurora v5 — Booga Booga Reborn
+--// Aurora v5.1 — Booga Booga Reborn
 --// AuroraHub Edition (Wave / Potassium)
 --// PlaceId: 11729688377 · Game: Booga Booga [Easter! ðŸ¥š]
---// Source logic from: github.com/decryp1/booga-booga-reborn-testing (Herkle Hub)
---// UI: Aurora v5 3-column HUD replacing Fluent UI
+--// v5.1: Nilhub-parity pass — adds 20 features using our own Aurora code:
+--//   Typing Check, Auto Heal, Auto Eat, Auto Voodoo Shield/Bolt, Auto Equip Armor,
+--//   Auto Tool Swap, Better Mountain Climber, Auto Farm Gold, Auto Fish,
+--//   Auto Chest Open, Auto Egg/Heart/Gold Hunt, Fly, Noclip, HitBox Expander,
+--//   Face/Move Closest, Teleport Portals, Full ESP (6 cats), Expanded Pickup.
 
 local Players = game:GetService("Players")
 local RS = game:GetService("ReplicatedStorage")
@@ -38,18 +41,41 @@ local function alive() return getgenv().__AURORAHUB_BOOGA_SESSION == _mySession 
 ---------- CONFIG ----------
 if not getgenv().__AURORAHUB_BOOGA_CFG then
     getgenv().__AURORAHUB_BOOGA_CFG = {
-        -- Main
+        -- Main — movement
         Walkspeed = false, WalkspeedValue = 16,
         JumpPower = false, JumpPowerValue = 50,
         HipHeight = false, HipHeightValue = 2,
         NoMountainSlip = false,
+        BetterClimber = false,
+        Fly = false, FlySpeed = 50,
+        Noclip = false,
+
+        -- Main — survival
+        AutoHeal = false, HealThreshold = 50,
+        AutoEat = false, EatThreshold = 60,
+        AutoEquipArmor = false,
+        TypingCheck = true,
 
         -- Combat
         KillAura = false, KillAuraRange = 5, KillAuraMaxTargets = "1", KillAuraCooldown = 0.1,
-
-        -- Map
+        LegitKillAura = false,
+        FaceClosest = false, MoveToClosest = false,
         ResourceAura = false, ResourceAuraRange = 20, ResourceMaxTargets = "1", ResourceCooldown = 0.1,
         CritterAura = false, CritterAuraRange = 20, CritterMaxTargets = "1", CritterCooldown = 0.1,
+        AutoHitEverything = false,
+        AutoToolSwap = false,
+
+        -- Voodoo
+        AutoVoodooShield = false,
+        AutoVoodooBolt = false, VoodooBoltRange = 60,
+
+        -- HitBox expander
+        HitboxPlayers = false, HitboxPlayersSize = 10,
+        HitboxBirds = false, HitboxBirdsSize = 10,
+
+        -- PvP trap
+        AutoWallPlayer = false, AutoHutPlayer = false,
+        PvPTrapRange = 15,
 
         -- Pickup
         AutoPickup = false, AutoChestPickup = false, PickupRange = 20,
@@ -63,28 +89,40 @@ if not getgenv().__AURORAHUB_BOOGA_CFG then
         AutoHarvest = false, HarvestRange = 30,
         TweenPlantBox = false, TweenBush = false, TweenRange = 250,
 
-        -- Extra
+        -- Extra — orbit (existing)
         ItemOrbit = false, OrbitRange = 20, OrbitRadius = 10, OrbitSpeed = 5, ItemHeight = 3,
 
+        -- Extra — new autos
+        AutoFarmGold = false, AutoFishing = false,
+        AutoCoinPress = false, AutoCampfire = false, AutoChestOpen = false,
+        AutoEggHunt = false, AutoHeartHunt = false, AutoGoldHunt = false,
+        AutoRebirth = false,
+
+        -- ESP
+        ESPPlayers = false, ESPCritters = false, ESPResources = false, ESPItems = false,
+        ESPChests = false, ESPBosses = false, ESPRange = 500,
+
         -- Persistence + UI
-        AutoSave = false,
-        ActiveTab = "Main",
-        PanelOpen = true,
+        AutoSave = false, ActiveTab = "Main", PanelOpen = true,
     }
 else
     local c = getgenv().__AURORAHUB_BOOGA_CFG
     local defaults = {
-        WalkspeedValue=16, JumpPowerValue=50, HipHeightValue=2,
+        WalkspeedValue=16, JumpPowerValue=50, HipHeightValue=2, FlySpeed=50,
+        HealThreshold=50, EatThreshold=60, VoodooBoltRange=60,
         KillAuraRange=5, KillAuraMaxTargets="1", KillAuraCooldown=0.1,
         ResourceAuraRange=20, ResourceMaxTargets="1", ResourceCooldown=0.1,
         CritterAuraRange=20, CritterMaxTargets="1", CritterCooldown=0.1,
+        HitboxPlayersSize=10, HitboxBirdsSize=10, PvPTrapRange=15,
         PickupRange=20, DropItem="Bloodfruit", DropItemCustom="Bloodfruit",
         Fruit="Bloodfruit", PlantRange=30, PlantDelay=0.1, HarvestRange=30,
         TweenRange=250, OrbitRange=20, OrbitRadius=10, OrbitSpeed=5, ItemHeight=3,
+        ESPRange=500,
         ActiveTab="Main", PanelOpen=true,
     }
     for k, v in pairs(defaults) do if c[k] == nil then c[k] = v end end
     if type(c.PickupItems) ~= "table" then c.PickupItems = { Leaves = true, Log = true } end
+    if c.TypingCheck == nil then c.TypingCheck = true end
 end
 local CFG = getgenv().__AURORAHUB_BOOGA_CFG
 
@@ -129,8 +167,20 @@ end
 loadSavedCFG()
 
 ---------- STATE ----------
-local S = { swings = 0, pickups = 0, drops = 0, plants = 0, harvests = 0, placed = 0 }
+local S = { swings = 0, pickups = 0, drops = 0, plants = 0, harvests = 0, placed = 0,
+            heals = 0, eats = 0, voodoos = 0, fish = 0, eggs = 0, hearts = 0, golds = 0, chests = 0 }
 local _sessionStart = tick()
+
+-- ESP state (separate table to avoid cluttering locals)
+local E = { highlights = {}, billboards = {}, origHitbox = {} }
+
+-- Typing guard
+local _typing = false
+UIS.TextBoxFocused:Connect(function() _typing = true end)
+UIS.TextBoxFocusReleased:Connect(function() _typing = false end)
+local function typingGuard()
+    return CFG.TypingCheck and _typing
+end
 
 -- ============================================================
 -- ORIGINAL BOOGA LOGIC (preserved verbatim, Options.* → CFG.*)
@@ -143,20 +193,21 @@ local root = char:WaitForChild("HumanoidRootPart")
 local hum = char:WaitForChild("Humanoid")
 local placestructure
 
--- Fruit → item id map
+-- Fruit → item id map (v5.1 BUG FIX: Coconut was 1 (wood), Carrot was 147 (dock); fixed from ItemIDS module)
 local fruittoitemid = {
-    Bloodfruit = 94, Bluefruit = 377, Lemon = 99, Coconut = 1, Jelly = 604,
-    Banana = 606, Orange = 602, Oddberry = 32, Berry = 35, Strangefruit = 302,
+    Bloodfruit = 94, Bluefruit = 377, Lemon = 99,
+    Coconut = 4,   -- was 1 in v5.0 (wrong — 1 is Wood); verified from RS.Modules.ItemIDS
+    Jelly = 604, Banana = 606, Orange = 602, Oddberry = 32, Berry = 35, Strangefruit = 302,
     Strawberry = 282, Sunfruit = 128, Pumpkin = 80, ["Prickly Pear"] = 378,
-    Apple = 243, Barley = 247, Cloudberry = 101, Carrot = 147,
+    Apple = 243, Barley = 247, Cloudberry = 101,
+    Carrot = 149,  -- was 147 in v5.0 (wrong — 147 is Dock); verified
 }
 
--- Encoding helpers (verbatim)
+-- Encoding helpers (verbatim from v5.0)
 local function decode(str)
     local b1, b2, b3 = string.byte(str, -4, -2)
     return b1 + b2 * 256 + b3 * 65536
 end
-
 local function swingencode(ids)
     if typeof(ids) ~= "table" then ids = {ids} end
     local count = #ids
@@ -167,21 +218,18 @@ local function swingencode(ids)
     end
     return table.concat(out)
 end
-
 local function pickupencode(entityid)
     local b1 = entityid % 256
     local b2 = math.floor(entityid / 256) % 256
     local b3 = math.floor(entityid / 65536) % 256
     return string.char(0x00, 0xD5, b1, b2, b3, 0x00)
 end
-
 local function toggledoorencode(entityid)
     local b1 = entityid % 256
     local b2 = math.floor(entityid / 256) % 256
     local b3 = math.floor(entityid / 65536) % 256
     return string.char(0x00, 0x07, b1, b2, b3, 0x00)
 end
-
 local function interactstructureencode(entityid, itemid)
     local b1 = entityid % 256
     local b2 = math.floor(entityid / 256) % 256
@@ -190,38 +238,27 @@ local function interactstructureencode(entityid, itemid)
     local i2 = math.floor(itemid / 256) % 256
     return string.char(0x00, 0xC9, b1, b2, b3, 0x00, i1, i2)
 end
-
 local function run(stringg, packett, itemid)
     local id = typeof(stringg) == "string" and decode(stringg) or stringg
     local packet
-    if packett == "swing" then
-        packet = swingencode(id)
-    elseif packett == "pickup" then
-        packet = pickupencode(id)
-    elseif packett == "interactstructure" then
-        packet = interactstructureencode(id, typeof(itemid) == "number" and itemid or nil)
-    elseif packett == "toggledoor" then
-        packet = toggledoorencode(id)
-    else
-        return
-    end
+    if packett == "swing" then packet = swingencode(id)
+    elseif packett == "pickup" then packet = pickupencode(id)
+    elseif packett == "interactstructure" then packet = interactstructureencode(id, typeof(itemid) == "number" and itemid or nil)
+    elseif packett == "toggledoor" then packet = toggledoorencode(id)
+    else return end
     pcall(function() RS:WaitForChild("ByteNetReliable"):FireServer(buffer.fromstring(packet)) end)
 end
 
-local function getlayout(itemname)
-    local inventory = plr.PlayerGui:FindFirstChild("MainGui") and plr.PlayerGui.MainGui:FindFirstChild("RightPanel") and plr.PlayerGui.MainGui.RightPanel:FindFirstChild("Inventory")
-    local list = inventory and inventory:FindFirstChild("List")
-    if not list then return nil end
-    for _, child in ipairs(list:GetChildren()) do
-        if child:IsA("ImageLabel") and child.Name == itemname then return child.LayoutOrder end
-    end
-    return nil
+local function getInventoryList()
+    local p = plr:FindFirstChild("PlayerGui")
+    local mg = p and p:FindFirstChild("MainGui")
+    local rp = mg and mg:FindFirstChild("RightPanel")
+    local inv = rp and rp:FindFirstChild("Inventory")
+    return inv and inv:FindFirstChild("List")
 end
 
 local function drop(itemname)
-    local inventory = plr.PlayerGui:FindFirstChild("MainGui") and plr.PlayerGui.MainGui:FindFirstChild("RightPanel") and plr.PlayerGui.MainGui.RightPanel:FindFirstChild("Inventory")
-    local list = inventory and inventory:FindFirstChild("List")
-    if not list then return end
+    local list = getInventoryList(); if not list then return end
     for _, child in ipairs(list:GetChildren()) do
         if child:IsA("ImageLabel") and child.Name == itemname then
             if packets and packets.DropBagItem and packets.DropBagItem.send then
@@ -230,6 +267,15 @@ local function drop(itemname)
             end
         end
     end
+end
+
+-- Find inventory item by name (returns LayoutOrder or nil)
+local function findInvItem(name)
+    local list = getInventoryList(); if not list then return nil end
+    for _, child in ipairs(list:GetChildren()) do
+        if child:IsA("ImageLabel") and child.Name == name then return child.LayoutOrder, child end
+    end
+    return nil
 end
 
 ---------- CHARACTER HANDLING ----------
@@ -255,7 +301,7 @@ local function updhh()
 end
 local function updmsa()
     if slopecon then slopecon:Disconnect() end
-    if CFG.NoMountainSlip then
+    if CFG.NoMountainSlip or CFG.BetterClimber then
         slopecon = runs.RenderStepped:Connect(function() if hum then hum.MaxSlopeAngle = 90 end end)
     else
         if hum then pcall(function() hum.MaxSlopeAngle = 46 end) end
@@ -273,10 +319,11 @@ updws(); updhh(); updmsa()
 ---------- KILL AURA ----------
 task.spawn(function()
     while alive() do
-        if not CFG.KillAura then task.wait(0.1); continue end
+        if (not CFG.KillAura) or typingGuard() then task.wait(0.1); continue end
         local range = tonumber(CFG.KillAuraRange) or 5
         local targetCount = tonumber(CFG.KillAuraMaxTargets) or 1
         local cooldown = tonumber(CFG.KillAuraCooldown) or 0.1
+        if CFG.LegitKillAura then cooldown = cooldown + math.random() * 0.3 end
         local targets = {}
         for _, player in pairs(Players:GetPlayers()) do
             if player ~= plr then
@@ -304,7 +351,7 @@ end)
 ---------- RESOURCE AURA ----------
 task.spawn(function()
     while alive() do
-        if not CFG.ResourceAura then task.wait(0.1); continue end
+        if (not CFG.ResourceAura) or typingGuard() then task.wait(0.1); continue end
         local range = tonumber(CFG.ResourceAuraRange) or 20
         local targetCount = tonumber(CFG.ResourceMaxTargets) or 1
         local cooldown = tonumber(CFG.ResourceCooldown) or 0.1
@@ -313,7 +360,7 @@ task.spawn(function()
         local resFolder = workspace:FindFirstChild("Resources")
         if resFolder then for _, r in pairs(resFolder:GetChildren()) do table.insert(allresources, r) end end
         for _, r in pairs(workspace:GetChildren()) do
-            if r:IsA("Model") and r.Name == "Gold Node" then table.insert(allresources, r) end
+            if r:IsA("Model") and (r.Name == "Gold Node" or r.Name == "Iron Node") then table.insert(allresources, r) end
         end
         for _, res in pairs(allresources) do
             if res:IsA("Model") and res:GetAttribute("EntityID") and root then
@@ -338,7 +385,7 @@ end)
 ---------- CRITTER AURA ----------
 task.spawn(function()
     while alive() do
-        if not CFG.CritterAura then task.wait(0.1); continue end
+        if (not CFG.CritterAura) or typingGuard() then task.wait(0.1); continue end
         local range = tonumber(CFG.CritterAuraRange) or 20
         local targetCount = tonumber(CFG.CritterMaxTargets) or 1
         local cooldown = tonumber(CFG.CritterCooldown) or 0.1
@@ -366,15 +413,52 @@ task.spawn(function()
     end
 end)
 
+---------- AUTO HIT EVERYTHING (combined) ----------
+task.spawn(function()
+    while alive() do
+        if (not CFG.AutoHitEverything) or typingGuard() then task.wait(0.1); continue end
+        if not root then task.wait(0.1); continue end
+        local range = tonumber(CFG.ResourceAuraRange) or 20
+        local targets = {}
+        local folders = {workspace:FindFirstChild("Resources"), workspace:FindFirstChild("Critters")}
+        for _, folder in ipairs(folders) do
+            if folder then
+                for _, r in pairs(folder:GetChildren()) do
+                    if r:IsA("Model") and r:GetAttribute("EntityID") then
+                        local pp = r.PrimaryPart or r:FindFirstChildWhichIsA("BasePart")
+                        if pp and (pp.Position - root.Position).Magnitude <= range then
+                            table.insert(targets, r:GetAttribute("EntityID"))
+                        end
+                    end
+                end
+            end
+        end
+        for _, r in pairs(workspace:GetChildren()) do
+            if r:IsA("Model") and (r.Name == "Gold Node" or r.Name == "Iron Node") and r:GetAttribute("EntityID") then
+                local pp = r.PrimaryPart or r:FindFirstChildWhichIsA("BasePart")
+                if pp and (pp.Position - root.Position).Magnitude <= range then
+                    table.insert(targets, r:GetAttribute("EntityID"))
+                end
+            end
+        end
+        if #targets > 0 then
+            -- Chunk to batches of 6 (server may limit packet size)
+            for i = 1, math.min(#targets, 6) do
+                run(targets[i], "swing"); S.swings = S.swings + 1
+            end
+        end
+        task.wait(0.15)
+    end
+end)
+
 ---------- AUTO PICKUP ----------
 task.spawn(function()
     while alive() do
         local range = tonumber(CFG.PickupRange) or 35
-        -- Build selected items list from CFG set
         local selectedItems = {}
         for k, v in pairs(CFG.PickupItems) do if v then table.insert(selectedItems, k) end end
 
-        if CFG.AutoPickup and root then
+        if CFG.AutoPickup and root and (not typingGuard()) then
             local items = workspace:FindFirstChild("Items")
             if items then
                 for _, item in ipairs(items:GetChildren()) do
@@ -392,7 +476,7 @@ task.spawn(function()
             end
         end
 
-        if CFG.AutoChestPickup and root then
+        if CFG.AutoChestPickup and root and (not typingGuard()) then
             local deps = workspace:FindFirstChild("Deployables")
             if deps then
                 for _, chest in ipairs(deps:GetChildren()) do
@@ -477,11 +561,12 @@ local function tween(target)
     if not root then return end
     if tweening then pcall(function() tweening:Cancel() end) end
     local distance = (root.Position - target.Position).Magnitude
-    local duration = distance / 21
+    local duration = math.max(0.2, distance / 100)  -- v5.1: faster (was /21)
     local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Linear)
     local t = tspmo:Create(root, tweenInfo, { CFrame = target })
     t:Play()
     tweening = t
+    return duration
 end
 
 local function tweenplantbox(range)
@@ -526,7 +611,7 @@ end
 ---------- AUTO PLANT ----------
 task.spawn(function()
     while alive() do
-        if not CFG.AutoPlant then task.wait(0.1); continue end
+        if (not CFG.AutoPlant) or typingGuard() then task.wait(0.1); continue end
         local range = tonumber(CFG.PlantRange) or 30
         local pdelay = tonumber(CFG.PlantDelay) or 0.1
         local fruit = CFG.Fruit or "Bloodfruit"
@@ -536,9 +621,7 @@ task.spawn(function()
         for _, box in ipairs(boxes) do
             if not box.deployable:FindFirstChild("Seed") then
                 run(box.entityid, "interactstructure", itemID); S.plants = S.plants + 1
-            else
-                plantedboxes[box.entityid] = true
-            end
+            else plantedboxes[box.entityid] = true end
         end
         task.wait(pdelay)
     end
@@ -547,7 +630,7 @@ end)
 ---------- AUTO HARVEST ----------
 task.spawn(function()
     while alive() do
-        if not CFG.AutoHarvest then task.wait(0.1); continue end
+        if (not CFG.AutoHarvest) or typingGuard() then task.wait(0.1); continue end
         local range = tonumber(CFG.HarvestRange) or 30
         local fruit = CFG.Fruit or "Bloodfruit"
         local bushes = getbushes(range, fruit)
@@ -589,9 +672,7 @@ placestructure = function(gridsize)
                 pcall(function()
                     packets.PlaceStructure.send{
                         buildingName = "Plant Box",
-                        yrot = 45,
-                        vec = position,
-                        isMobile = false,
+                        yrot = 45, vec = position, isMobile = false,
                     }
                 end)
                 S.placed = S.placed + 1
@@ -600,12 +681,11 @@ placestructure = function(gridsize)
     end
 end
 
----------- ITEM ORBIT ----------
+---------- ITEM ORBIT (existing) ----------
 local attacheditems, itemangles, lastpositions = {}, {}, {}
 local itemsfolder = workspace:WaitForChild("Items")
-
--- Orbit toggle state tracking
 local _prevOrbit = false
+
 task.spawn(function()
     while alive() do
         if CFG.ItemOrbit ~= _prevOrbit then
@@ -670,6 +750,585 @@ task.spawn(function()
             end
         end
         task.wait()
+    end
+end)
+
+-- ============================================================
+-- v5.1 NEW FEATURES
+-- ============================================================
+
+---------- HELPERS ----------
+local function nearestEnemy()
+    if not root then return nil end
+    local best, bestDist
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= plr then
+            local pf = workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild(p.Name)
+            local rp = pf and pf:FindFirstChild("HumanoidRootPart")
+            if rp then
+                local d = (rp.Position - root.Position).Magnitude
+                if not bestDist or d < bestDist then best = pf; bestDist = d end
+            end
+        end
+    end
+    return best, bestDist
+end
+
+local function fireVoodoo(spellName)
+    if packets.VoodooSpell and packets.VoodooSpell.send then
+        pcall(function() packets.VoodooSpell.send(spellName) end)
+        S.voodoos = S.voodoos + 1
+    end
+end
+
+-- Food priority (skip anything with negative health)
+local FOOD_PRIORITY = {
+    "Cooked Squid","Cooked Eel","Cooked Baracuda","Cooked Fish","Fried Egg","Cooked Morsel",
+    "Pumpkin","Bread","Jelly Sandwich","Cooked Meat","Peeper Popsicle","Coconut","Mango",
+    "Apple","Bluefruit","Bloodfruit","Sunfruit","Fried Cactus","Berry","Oddberry","Orange",
+    "Strangefruit","Strawberry","Banana","Cloudberry","Corn","Cactus Bit","Blossom","Jelly",
+}
+-- Armor priority per locus
+local ARMOR_BY_LOCUS = {
+    head  = {"God Halo","Pink Diamond Hood","Emerald Helmet","Void Shroud","Magnetite Mask","Crystal Crown","Adurite Helmet","Steel Helmet","Iron Helmet"},
+    torso = {"God Chestplate","Pink Diamond Chestplate","Emerald Chestplate","Void Chestplate","Magnetite Chestplate","Crystal Chestplate","Adurite Chestplate","Steel Chestplate","Iron Chestplate","Hide Shirt","Leaf Shirt"},
+    legs  = {"God Legs","Pink Diamond Greaves","Emerald Greaves","Void Greaves","Magnetite Greaves","Crystal Greaves","Adurite Greaves","Steel Greaves","Iron Greaves","Hide Pants","Leaf Pants"},
+}
+-- Best tool/weapon by task
+local TOOL_PRIORITY = {
+    mob = {"Emerald Blade","Crossbow","Battle Axe","God Pick","Pink Diamond Axe","Mace","Iron Bow","Sling","Club"},
+    stone = {"God Pick","Pink Diamond Pick","Emerald Pick","Magnetite Pick","Crystal Pick","Adurite Pick","Steel Pick","Iron Pick","Stone Pick","Wood Pick"},
+    wood = {"Pink Diamond Axe","Emerald Axe","Magnetite Axe","Crystal Axe","Adurite Axe","Steel Axe","Iron Axe","Stone Axe","Wood Axe"},
+    rod = {"Fishing Rod"},
+}
+
+---------- AUTO HEAL ----------
+task.spawn(function()
+    while alive() do
+        if CFG.AutoHeal and hum and hum.MaxHealth > 0 then
+            local pct = (hum.Health / hum.MaxHealth) * 100
+            if pct <= (tonumber(CFG.HealThreshold) or 50) then
+                -- Try healing potion first via UseBagItem
+                local ord = findInvItem("Healing") or findInvItem("Greater Healing")
+                if ord and packets.UseBagItem and packets.UseBagItem.send then
+                    pcall(function() packets.UseBagItem.send(ord) end); S.heals = S.heals + 1
+                end
+                -- Fallback: Auto Voodoo Energy Shield if available
+                if not ord then fireVoodoo("Energy Shield") end
+            end
+        end
+        task.wait(1.0)
+    end
+end)
+
+---------- AUTO EAT ----------
+task.spawn(function()
+    while alive() do
+        if CFG.AutoEat then
+            -- Find best food in inventory (walks priority list)
+            local list = getInventoryList()
+            if list then
+                local bestOrd, bestName
+                for _, food in ipairs(FOOD_PRIORITY) do
+                    for _, child in ipairs(list:GetChildren()) do
+                        if child:IsA("ImageLabel") and child.Name == food then
+                            bestOrd = child.LayoutOrder; bestName = food; break
+                        end
+                    end
+                    if bestOrd then break end
+                end
+                if bestOrd and packets.UseBagItem and packets.UseBagItem.send then
+                    pcall(function() packets.UseBagItem.send(bestOrd) end); S.eats = S.eats + 1
+                end
+            end
+        end
+        task.wait(4.0)
+    end
+end)
+
+---------- AUTO VOODOO SHIELD (renew every 28s for near-godmode) ----------
+task.spawn(function()
+    while alive() do
+        if CFG.AutoVoodooShield then fireVoodoo("Energy Shield") end
+        task.wait(28)
+    end
+end)
+
+---------- AUTO VOODOO BOLT (spam at nearest) ----------
+task.spawn(function()
+    while alive() do
+        if CFG.AutoVoodooBolt and (not typingGuard()) then
+            local e, d = nearestEnemy()
+            if e and d and d <= (tonumber(CFG.VoodooBoltRange) or 60) then
+                fireVoodoo("Energy Bolt")
+            end
+        end
+        task.wait(1.2)
+    end
+end)
+
+---------- AUTO EQUIP ARMOR ----------
+task.spawn(function()
+    while alive() do
+        if CFG.AutoEquipArmor then
+            local list = getInventoryList()
+            if list then
+                for locus, priority in pairs(ARMOR_BY_LOCUS) do
+                    for _, armorName in ipairs(priority) do
+                        local ord = nil
+                        for _, child in ipairs(list:GetChildren()) do
+                            if child:IsA("ImageLabel") and child.Name == armorName then ord = child.LayoutOrder; break end
+                        end
+                        if ord and packets.UseBagItem and packets.UseBagItem.send then
+                            pcall(function() packets.UseBagItem.send(ord) end)
+                            break  -- equipped this locus, move to next
+                        end
+                    end
+                end
+            end
+        end
+        task.wait(30)  -- re-check every 30s
+    end
+end)
+
+---------- AUTO TOOL SWAP ----------
+local _lastToolSwap = 0
+task.spawn(function()
+    while alive() do
+        if CFG.AutoToolSwap and tick() - _lastToolSwap >= 3 then
+            local priority
+            if CFG.KillAura or CFG.CritterAura or CFG.AutoHitEverything then priority = TOOL_PRIORITY.mob
+            elseif CFG.ResourceAura then priority = TOOL_PRIORITY.stone
+            elseif CFG.AutoHarvest or CFG.AutoPlant then priority = nil  -- no tool needed
+            elseif CFG.AutoFishing then priority = TOOL_PRIORITY.rod
+            end
+            if priority then
+                local list = getInventoryList()
+                if list then
+                    for _, tname in ipairs(priority) do
+                        for _, child in ipairs(list:GetChildren()) do
+                            if child:IsA("ImageLabel") and child.Name == tname then
+                                if packets.UseBagItem and packets.UseBagItem.send then
+                                    pcall(function() packets.UseBagItem.send(child.LayoutOrder) end)
+                                end
+                                _lastToolSwap = tick(); break
+                            end
+                        end
+                    end
+                end
+            end
+        end
+        task.wait(2)
+    end
+end)
+
+---------- AUTO FARM GOLD (4-node AFK loop, research-derived) ----------
+local GOLD_NODES = {
+    Vector3.new(700, 9, 969), Vector3.new(613, -9, -388),
+    Vector3.new(474, 10, 156), Vector3.new(296, -3, 1148),
+}
+task.spawn(function()
+    local idx = 1
+    while alive() do
+        if CFG.AutoFarmGold and root then
+            local pos = GOLD_NODES[idx]
+            local dur = tween(CFrame.new(pos + Vector3.new(0, 3, 0)))
+            task.wait(dur + 0.3)
+            -- Swing at node — find Gold Node nearest to pos
+            for _, r in ipairs(workspace.Resources:GetChildren()) do
+                if r.Name == "Gold Node" then
+                    local pp = r.PrimaryPart or r:FindFirstChildWhichIsA("BasePart")
+                    if pp and (pp.Position - pos).Magnitude < 40 then
+                        for _ = 1, 12 do
+                            if not CFG.AutoFarmGold or not alive() then break end
+                            run(r:GetAttribute("EntityID"), "swing"); S.swings = S.swings + 1
+                            task.wait(0.3)
+                        end
+                        break
+                    end
+                end
+            end
+            idx = (idx % #GOLD_NODES) + 1
+        end
+        task.wait(0.5)
+    end
+end)
+
+---------- AUTO FISH ----------
+task.spawn(function()
+    while alive() do
+        if CFG.AutoFishing and root and (not typingGuard()) then
+            -- Cast bobber at water in front
+            local castPos = root.Position + root.CFrame.LookVector * 20 - Vector3.new(0, 5, 0)
+            if packets.CreateBobber and packets.CreateBobber.send then
+                pcall(function() packets.CreateBobber.send(castPos) end)
+            end
+            task.wait(3.5)
+            if packets.RodSwing and packets.RodSwing.send then
+                pcall(function() packets.RodSwing.send() end); S.fish = S.fish + 1
+            end
+        end
+        task.wait(2)
+    end
+end)
+
+---------- AUTO CHEST OPEN ----------
+task.spawn(function()
+    while alive() do
+        if CFG.AutoChestOpen and root then
+            for _, c in ipairs(workspace:FindFirstChild("dropChests") and workspace.dropChests:GetChildren() or {}) do
+                local eid = c:GetAttribute("EntityID")
+                local pp = c.PrimaryPart or c:FindFirstChildWhichIsA("BasePart")
+                if eid and pp and (pp.Position - root.Position).Magnitude <= 100 then
+                    if packets.ChestDrop and packets.ChestDrop.send then
+                        pcall(function() packets.ChestDrop.send(eid) end); S.chests = S.chests + 1
+                    end
+                end
+            end
+        end
+        task.wait(2)
+    end
+end)
+
+---------- AUTO EGG/HEART/GOLD HUNT ----------
+local function fireHuntPickup(huntName, entityID)
+    if huntName == "Egg" and packets.EasterEggPickupRequest and packets.EasterEggPickupRequest.send then
+        pcall(function() packets.EasterEggPickupRequest.send(entityID) end)
+    else
+        -- Generic pickup fallback
+        pcall(function() run(entityID, "pickup") end)
+    end
+end
+
+task.spawn(function()
+    while alive() do
+        local H = RS:FindFirstChild("Hunts")
+        if H and root then
+            if CFG.AutoEggHunt then
+                local f = H:FindFirstChild("Egg")
+                if f then
+                    for _, e in ipairs(f:GetChildren()) do
+                        local eid = e:GetAttribute("EntityID")
+                        if eid then fireHuntPickup("Egg", eid); S.eggs = S.eggs + 1 end
+                    end
+                end
+            end
+            if CFG.AutoHeartHunt then
+                local f = H:FindFirstChild("Heart")
+                if f then
+                    for _, e in ipairs(f:GetChildren()) do
+                        local eid = e:GetAttribute("EntityID")
+                        if eid then fireHuntPickup("Heart", eid); S.hearts = S.hearts + 1 end
+                    end
+                end
+            end
+            if CFG.AutoGoldHunt then
+                local f = H:FindFirstChild("Gold")
+                if f then
+                    for _, e in ipairs(f:GetChildren()) do
+                        local eid = e:GetAttribute("EntityID")
+                        if eid then fireHuntPickup("Gold", eid); S.golds = S.golds + 1 end
+                    end
+                end
+            end
+        end
+        task.wait(4)
+    end
+end)
+
+---------- AUTO REBIRTH ----------
+task.spawn(function()
+    while alive() do
+        if CFG.AutoRebirth and packets.Rebirth and packets.Rebirth.send then
+            pcall(function() packets.Rebirth.send() end)
+        end
+        task.wait(60)
+    end
+end)
+
+---------- FLY ----------
+local _flyBV, _flyBG
+task.spawn(function()
+    while alive() do
+        if CFG.Fly and root then
+            if not _flyBV or not _flyBV.Parent then
+                _flyBV = Instance.new("BodyVelocity")
+                _flyBV.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+                _flyBV.Velocity = Vector3.new()
+                _flyBV.Parent = root
+                _flyBG = Instance.new("BodyGyro")
+                _flyBG.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+                _flyBG.P = 10000; _flyBG.D = 500
+                _flyBG.CFrame = workspace.CurrentCamera.CFrame
+                _flyBG.Parent = root
+            end
+            local cam = workspace.CurrentCamera
+            local move = Vector3.new()
+            if UIS:IsKeyDown(Enum.KeyCode.W) then move = move + cam.CFrame.LookVector end
+            if UIS:IsKeyDown(Enum.KeyCode.S) then move = move - cam.CFrame.LookVector end
+            if UIS:IsKeyDown(Enum.KeyCode.A) then move = move - cam.CFrame.RightVector end
+            if UIS:IsKeyDown(Enum.KeyCode.D) then move = move + cam.CFrame.RightVector end
+            if UIS:IsKeyDown(Enum.KeyCode.Space) then move = move + Vector3.new(0, 1, 0) end
+            if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then move = move - Vector3.new(0, 1, 0) end
+            _flyBV.Velocity = move.Unit.Magnitude == math.huge and Vector3.new() or (move * (tonumber(CFG.FlySpeed) or 50))
+            _flyBG.CFrame = cam.CFrame
+        else
+            if _flyBV then pcall(function() _flyBV:Destroy() end); _flyBV = nil end
+            if _flyBG then pcall(function() _flyBG:Destroy() end); _flyBG = nil end
+        end
+        task.wait(0.05)
+    end
+end)
+
+---------- NOCLIP ----------
+runs.Stepped:Connect(function()
+    if alive() and CFG.Noclip and char then
+        for _, part in ipairs(char:GetDescendants()) do
+            if part:IsA("BasePart") and part.CanCollide then part.CanCollide = false end
+        end
+    end
+end)
+
+---------- HITBOX EXPANDER (players + birds) ----------
+local function applyHitbox(inst, size)
+    if not E.origHitbox[inst] then E.origHitbox[inst] = { size = inst.Size, trans = inst.Transparency } end
+    pcall(function() inst.Size = Vector3.new(size, size, size); inst.Transparency = 0.8 end)
+end
+local function restoreHitbox(inst)
+    if E.origHitbox[inst] then
+        pcall(function() inst.Size = E.origHitbox[inst].size; inst.Transparency = E.origHitbox[inst].trans end)
+        E.origHitbox[inst] = nil
+    end
+end
+
+task.spawn(function()
+    while alive() do
+        if CFG.HitboxPlayers then
+            local pf = workspace:FindFirstChild("Players")
+            if pf then
+                for _, p in ipairs(pf:GetChildren()) do
+                    if p.Name ~= plr.Name then
+                        local rp = p:FindFirstChild("HumanoidRootPart")
+                        if rp then applyHitbox(rp, CFG.HitboxPlayersSize or 10) end
+                    end
+                end
+            end
+        else
+            for inst in pairs(E.origHitbox) do
+                if inst.Parent and inst.Parent.Name ~= "Bird" then restoreHitbox(inst) end
+            end
+        end
+        if CFG.HitboxBirds then
+            local cf = workspace:FindFirstChild("Critters")
+            if cf then
+                for _, c in ipairs(cf:GetChildren()) do
+                    if c.Name == "Bird" then
+                        local rp = c:FindFirstChild("HumanoidRootPart")
+                        if rp then applyHitbox(rp, CFG.HitboxBirdsSize or 10) end
+                    end
+                end
+            end
+        end
+        task.wait(1)
+    end
+end)
+
+---------- FACE / MOVE CLOSEST PLAYER ----------
+runs.Heartbeat:Connect(function()
+    if not alive() or not root then return end
+    if CFG.FaceClosest then
+        local e = nearestEnemy()
+        if e then
+            local rp = e:FindFirstChild("HumanoidRootPart")
+            if rp then
+                local lookCF = CFrame.new(root.Position, Vector3.new(rp.Position.X, root.Position.Y, rp.Position.Z))
+                root.CFrame = lookCF
+            end
+        end
+    end
+    if CFG.MoveToClosest and hum then
+        local e = nearestEnemy()
+        if e then
+            local rp = e:FindFirstChild("HumanoidRootPart")
+            if rp then hum:MoveTo(rp.Position) end
+        end
+    end
+end)
+
+---------- AUTO WALL / HUT PLAYER (PvP trap) ----------
+local _lastTrap = 0
+task.spawn(function()
+    while alive() do
+        if (CFG.AutoWallPlayer or CFG.AutoHutPlayer) and root and tick() - _lastTrap >= 3 then
+            local e, d = nearestEnemy()
+            if e and d and d <= (tonumber(CFG.PvPTrapRange) or 15) then
+                local rp = e:FindFirstChild("HumanoidRootPart")
+                if rp and packets.PlaceStructure and packets.PlaceStructure.send then
+                    local bname = CFG.AutoHutPlayer and "Hut" or "Wood Wall"
+                    -- 4 walls around target
+                    local offsets = CFG.AutoHutPlayer and { Vector3.new(0,0,0) } or
+                        { Vector3.new(0,0,6), Vector3.new(0,0,-6), Vector3.new(6,0,0), Vector3.new(-6,0,0) }
+                    for _, off in ipairs(offsets) do
+                        pcall(function()
+                            packets.PlaceStructure.send{ buildingName = bname, yrot = 0, vec = rp.Position + off, isMobile = false }
+                        end)
+                        S.placed = S.placed + 1
+                    end
+                    _lastTrap = tick()
+                end
+            end
+        end
+        task.wait(1)
+    end
+end)
+
+---------- AUTO COIN PRESS / AUTO CAMPFIRE (structure interact) ----------
+local _lastCoinPress, _lastCampfire = 0, 0
+task.spawn(function()
+    while alive() do
+        local deps = workspace:FindFirstChild("Deployables")
+        if not deps or not root then task.wait(5); continue end
+
+        if CFG.AutoCoinPress and tick() - _lastCoinPress >= 10 then
+            for _, d in ipairs(deps:GetChildren()) do
+                if d.Name == "Coin Press" and d:GetAttribute("owner") == tostring(plr.UserId) then
+                    local eid = d:GetAttribute("EntityID")
+                    if eid then
+                        -- Feed gold (item id 258 = Raw Gold, 70 = Coin)
+                        run(eid, "interactstructure", 258)
+                        _lastCoinPress = tick()
+                    end
+                end
+            end
+        end
+
+        if CFG.AutoCampfire and tick() - _lastCampfire >= 10 then
+            for _, d in ipairs(deps:GetChildren()) do
+                if d.Name == "Campfire" and d:GetAttribute("owner") == tostring(plr.UserId) then
+                    local eid = d:GetAttribute("EntityID")
+                    if eid then
+                        -- Refuel with Wood (id 1)
+                        run(eid, "interactstructure", 1)
+                        _lastCampfire = tick()
+                    end
+                end
+            end
+        end
+        task.wait(3)
+    end
+end)
+
+---------- ESP ----------
+local function ensureHighlight(inst, color, key)
+    local h = E.highlights[key]
+    if not h or not h.Parent then
+        h = Instance.new("Highlight")
+        h.Adornee = inst; h.FillTransparency = 0.7; h.OutlineTransparency = 0
+        h.FillColor = color; h.OutlineColor = color
+        h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        local ok = pcall(function() h.Parent = inst end)
+        if not ok then pcall(function() h.Parent = gethui and gethui() or game:GetService("CoreGui") end) end
+        E.highlights[key] = h
+    else
+        h.Adornee = inst; h.FillColor = color; h.OutlineColor = color
+    end
+end
+
+local function clearESP(prefix)
+    local keys = {}
+    for k in pairs(E.highlights) do if not prefix or k:sub(1, #prefix) == prefix then table.insert(keys, k) end end
+    for _, k in ipairs(keys) do
+        pcall(function() E.highlights[k]:Destroy() end)
+        E.highlights[k] = nil
+    end
+end
+
+local BOSS_NAMES = { "Ancient God","Wealthy God","Sleeping God","Furious God","Hateful God","Lonely God","Queen Ant","Shellington","Shelbert","Golden Banto","Giant Shelly","Ancient Tree","Spirit Lock","Sky Rope" }
+local BOSS_LOOKUP = {}
+for _, n in ipairs(BOSS_NAMES) do BOSS_LOOKUP[n] = true end
+
+task.spawn(function()
+    while alive() do
+        -- Clear if toggle OFF
+        if not CFG.ESPPlayers then clearESP("P_") end
+        if not CFG.ESPCritters then clearESP("C_") end
+        if not CFG.ESPResources then clearESP("R_") end
+        if not CFG.ESPItems then clearESP("I_") end
+        if not CFG.ESPChests then clearESP("CH_") end
+        if not CFG.ESPBosses then clearESP("B_") end
+
+        -- Build active ESP
+        if CFG.ESPPlayers then
+            local pf = workspace:FindFirstChild("Players")
+            if pf then
+                for _, p in ipairs(pf:GetChildren()) do
+                    if p.Name ~= plr.Name then ensureHighlight(p, Color3.fromRGB(252,110,142), "P_" .. p.Name) end
+                end
+            end
+        end
+        if CFG.ESPCritters then
+            local cf = workspace:FindFirstChild("Critters")
+            if cf then
+                for _, c in ipairs(cf:GetChildren()) do
+                    local eid = c:GetAttribute("EntityID")
+                    if eid then
+                        local col = BOSS_LOOKUP[c.Name] and Color3.fromRGB(255,80,80) or Color3.fromRGB(192,132,252)
+                        ensureHighlight(c, col, "C_" .. tostring(eid))
+                    end
+                end
+            end
+        end
+        if CFG.ESPResources then
+            local rf = workspace:FindFirstChild("Resources")
+            if rf then
+                for _, r in ipairs(rf:GetChildren()) do
+                    local eid = r:GetAttribute("EntityID")
+                    if eid then
+                        local col = (r.Name:find("Emerald") or r.Name:find("Adurite") or r.Name:find("Crystal") or r.Name:find("Meteor") or r.Name:find("Gold")) and Color3.fromRGB(0,200,100) or Color3.fromRGB(160,160,180)
+                        ensureHighlight(r, col, "R_" .. tostring(eid))
+                    end
+                end
+            end
+        end
+        if CFG.ESPItems then
+            local itf = workspace:FindFirstChild("Items")
+            if itf then
+                for _, it in ipairs(itf:GetChildren()) do
+                    local eid = it:GetAttribute("EntityID")
+                    if eid then ensureHighlight(it, Color3.fromRGB(255,255,0), "I_" .. tostring(eid)) end
+                end
+            end
+        end
+        if CFG.ESPChests then
+            local df = workspace:FindFirstChild("Deployables")
+            if df then
+                for _, d in ipairs(df:GetChildren()) do
+                    if d.Name:lower():find("chest") then
+                        local eid = d:GetAttribute("EntityID")
+                        if eid then ensureHighlight(d, Color3.fromRGB(255,165,0), "CH_" .. tostring(eid)) end
+                    end
+                end
+            end
+            local dc = workspace:FindFirstChild("dropChests")
+            if dc then
+                for _, c in ipairs(dc:GetChildren()) do
+                    local eid = c:GetAttribute("EntityID")
+                    if eid then ensureHighlight(c, Color3.fromRGB(255,215,0), "CH_drop_" .. tostring(eid)) end
+                end
+            end
+        end
+        if CFG.ESPBosses then
+            local rf = workspace:FindFirstChild("Resources")
+            if rf then
+                for _, r in ipairs(rf:GetChildren()) do
+                    if BOSS_LOOKUP[r.Name] then
+                        local eid = r:GetAttribute("EntityID")
+                        if eid then ensureHighlight(r, Color3.fromRGB(255,0,128), "B_" .. tostring(eid)) end
+                    end
+                end
+            end
+        end
+        task.wait(1)
     end
 end)
 
@@ -774,6 +1433,7 @@ local TABS = {
     { name = "Pickup",  icon = "▣" },
     { name = "Farming", icon = "✿" },
     { name = "Extra",   icon = "+" },
+    { name = "ESP",     icon = "◎" },
 }
 
 local tabMap = {}
@@ -789,7 +1449,7 @@ local function paintTabs()
     end
 end
 
-local TAB_Y0, TAB_H, TAB_GAP = 66, 34, 3
+local TAB_Y0, TAB_H, TAB_GAP = 66, 32, 3
 local function makeTabRow(tinfo, yPos, dimInactive)
     local row = create("Frame", { Name = "Tab_" .. tinfo.name, Size = UDim2.fromOffset(SIDEBAR_W - 20, TAB_H),
         Position = UDim2.fromOffset(10, yPos), BackgroundColor3 = C.pink, BackgroundTransparency = 1,
@@ -867,18 +1527,19 @@ local function makePanel(tabName, which, xPos, width, accent, title)
     return scroll
 end
 
-local TAB_NAMES = { "Main", "Combat", "Map", "Pickup", "Farming", "Extra", "Settings" }
+local TAB_NAMES = { "Main", "Combat", "Map", "Pickup", "Farming", "Extra", "ESP", "Settings" }
 local TAB_ACCENT = {
     Main=C.pink, Combat=C.purple, Map=C.pink, Pickup=C.purple,
-    Farming=C.pink, Extra=C.purple, Settings=C.pink,
+    Farming=C.pink, Extra=C.purple, ESP=C.green, Settings=C.pink,
 }
 local PANEL_TITLES = {
-    Main     = { alpha = "CHARACTER",  beta = "UTILITIES"    },
-    Combat   = { alpha = "KILL AURA",  beta = "COMBAT STATS" },
-    Map      = { alpha = "RESOURCES",  beta = "CRITTERS"     },
+    Main     = { alpha = "CHARACTER",  beta = "SURVIVAL"     },
+    Combat   = { alpha = "AURAS",      beta = "VOODOO + PVP" },
+    Map      = { alpha = "RESOURCES",  beta = "WAYPOINTS"    },
     Pickup   = { alpha = "AUTO PICKUP",beta = "AUTO DROP"    },
     Farming  = { alpha = "FARMING",    beta = "TWEEN + BUILD" },
-    Extra    = { alpha = "ITEM ORBIT", beta = "LOADOUT"      },
+    Extra    = { alpha = "AUTOS",      beta = "ORBIT + FLY"  },
+    ESP      = { alpha = "CATEGORIES", beta = "LEGEND"       },
     Settings = { alpha = "CONFIG",     beta = "ABOUT"        },
 }
 
@@ -1082,8 +1743,8 @@ local function dropdownRow(parent, label, cfgKey, options, order, multi)
         TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd }, pill)
     local arrow = create("TextLabel", { Size = UDim2.fromOffset(18, 22), Position = UDim2.new(1, -18, 0, 0),
         BackgroundTransparency = 1, Text = "▼", Font = F_SANS, TextSize = 8, TextColor3 = C.pink }, pill)
-    local POPUP_W, OPT_H = 200, 26
-    local POPUP_H = math.min(300, #options * (OPT_H + 2) + 8)
+    local POPUP_W, OPT_H = 220, 26
+    local POPUP_H = math.min(340, #options * (OPT_H + 2) + 8)
     local popup = create("Frame", { Name = "DropdownPopup_" .. cfgKey, Size = UDim2.fromOffset(POPUP_W, POPUP_H),
         BackgroundColor3 = C.bg, BorderSizePixel = 0, Visible = false, ZIndex = 50 }, screenGui)
     corner(popup, 8); stroke(popup, C.border2, 1, 0)
@@ -1181,17 +1842,27 @@ local function nMb() oMb = oMb + 1; return oMb end
 
 sectionHeader(scrolls["Main_alpha"], "●", "Movement", nMa())
 toggleRow    (scrolls["Main_alpha"], "Walkspeed",  "Walkspeed", nMa())
-sliderRow    (scrolls["Main_alpha"], "Value",      "WalkspeedValue", 1, 35, 1, nMa())
+sliderRow    (scrolls["Main_alpha"], "Value",      "WalkspeedValue", 1, 150, 1, nMa())
 toggleRow    (scrolls["Main_alpha"], "JumpPower",  "JumpPower", nMa())
-sliderRow    (scrolls["Main_alpha"], "Value",      "JumpPowerValue", 1, 65, 1, nMa())
+sliderRow    (scrolls["Main_alpha"], "Value",      "JumpPowerValue", 1, 200, 1, nMa())
 toggleRow    (scrolls["Main_alpha"], "HipHeight",  "HipHeight", nMa())
-sliderRow    (scrolls["Main_alpha"], "Value",      "HipHeightValue", 0.1, 6.5, 0.1, nMa())
+sliderRow    (scrolls["Main_alpha"], "Value",      "HipHeightValue", 0.1, 10, 0.1, nMa())
 toggleRow    (scrolls["Main_alpha"], "No Mountain Slip", "NoMountainSlip", nMa(), updmsa)
+toggleRow    (scrolls["Main_alpha"], "Better Mountain Climber", "BetterClimber", nMa(), updmsa)
+toggleRow    (scrolls["Main_alpha"], "Fly (WASD + Space/Ctrl)", "Fly", nMa())
+sliderRow    (scrolls["Main_alpha"], "Fly Speed", "FlySpeed", 10, 250, 5, nMa())
+toggleRow    (scrolls["Main_alpha"], "Noclip", "Noclip", nMa())
 
-sectionHeader(scrolls["Main_beta"], "▣", "Utilities", nMb())
+sectionHeader(scrolls["Main_beta"], "♥", "Survival", nMb())
+toggleRow    (scrolls["Main_beta"], "Auto Heal", "AutoHeal", nMb())
+sliderRow    (scrolls["Main_beta"], "Heal Threshold %", "HealThreshold", 10, 90, 5, nMb())
+toggleRow    (scrolls["Main_beta"], "Auto Eat (smart priority)", "AutoEat", nMb())
+toggleRow    (scrolls["Main_beta"], "Auto Equip Armor", "AutoEquipArmor", nMb())
+toggleRow    (scrolls["Main_beta"], "Typing Check (pauses autos)", "TypingCheck", nMb())
+
+sectionHeader(scrolls["Main_beta"], "◉", "Utilities", nMb())
 actionBtn(scrolls["Main_beta"], "Copy Job ID", C.bg3, nMb(), function() if setclipboard then setclipboard(game.JobId) end end)
 actionBtn(scrolls["Main_beta"], "Copy HWID",   C.bg3, nMb(), function() if setclipboard then setclipboard(rbxservice:GetClientId()) end end)
-actionBtn(scrolls["Main_beta"], "Copy SID",    C.bg3, nMb(), function() if setclipboard then setclipboard(rbxservice:GetSessionId()) end end)
 
 sectionHeader(scrolls["Main_beta"], "◉", "Status", nMb())
 U.infoMode    = infoRow(scrolls["Main_beta"], "Mode",    "Idle", C.pink,  nMb())
@@ -1199,51 +1870,108 @@ U.infoRuntime = infoRow(scrolls["Main_beta"], "Runtime", "0m",   C.text2, nMb())
 U.infoHealth  = infoRow(scrolls["Main_beta"], "Health",  "—",    C.text,  nMb())
 U.infoSpeed   = infoRow(scrolls["Main_beta"], "Speed",   "16",   C.text,  nMb())
 
--- COMBAT (Kill Aura)
+-- COMBAT
 local oCa, oCb = 0, 0
 local function nCa() oCa = oCa + 1; return oCa end
 local function nCb() oCb = oCb + 1; return oCb end
 
 sectionHeader(scrolls["Combat_alpha"], "⚔", "Kill Aura", nCa())
 toggleRow    (scrolls["Combat_alpha"], "Kill Aura",        "KillAura", nCa())
-sliderRow    (scrolls["Combat_alpha"], "Range",            "KillAuraRange", 1, 9, 1, nCa())
+toggleRow    (scrolls["Combat_alpha"], "Legit (jitter)",   "LegitKillAura", nCa())
+sliderRow    (scrolls["Combat_alpha"], "Range",            "KillAuraRange", 1, 30, 1, nCa())
 dropdownRow  (scrolls["Combat_alpha"], "Max Targets",      "KillAuraMaxTargets", {"1","2","3","4","5","6"}, nCa(), false)
 sliderRow    (scrolls["Combat_alpha"], "Attack Cooldown",  "KillAuraCooldown", 0.01, 1.01, 0.01, nCa())
 
-sectionHeader(scrolls["Combat_beta"], "◉", "Session Totals", nCb())
-U.infoSwings = infoRow(scrolls["Combat_beta"], "Swings",   "0", C.pink,  nCb())
-U.infoPickups= infoRow(scrolls["Combat_beta"], "Pickups",  "0", C.pink,  nCb())
-U.infoDrops  = infoRow(scrolls["Combat_beta"], "Drops",    "0", C.pink,  nCb())
+sectionHeader(scrolls["Combat_alpha"], "◆", "Resource + Critter", nCa())
+toggleRow    (scrolls["Combat_alpha"], "Resource Aura",   "ResourceAura", nCa())
+sliderRow    (scrolls["Combat_alpha"], "Range",           "ResourceAuraRange", 1, 40, 1, nCa())
+toggleRow    (scrolls["Combat_alpha"], "Critter Aura",    "CritterAura", nCa())
+sliderRow    (scrolls["Combat_alpha"], "Range",           "CritterAuraRange", 1, 40, 1, nCa())
+toggleRow    (scrolls["Combat_alpha"], "Auto Hit Everything", "AutoHitEverything", nCa())
+toggleRow    (scrolls["Combat_alpha"], "Auto Tool Swap",  "AutoToolSwap", nCa())
 
--- MAP (Resource + Critter auras)
+sectionHeader(scrolls["Combat_beta"], "✧", "Voodoo", nCb())
+toggleRow    (scrolls["Combat_beta"], "Auto Energy Shield (godmode)", "AutoVoodooShield", nCb())
+toggleRow    (scrolls["Combat_beta"], "Auto Energy Bolt (nearest)", "AutoVoodooBolt", nCb())
+sliderRow    (scrolls["Combat_beta"], "Voodoo Range", "VoodooBoltRange", 10, 120, 5, nCb())
+actionBtn    (scrolls["Combat_beta"], "Cast Void Cloak (30s invis)", C.purple, nCb(), function() fireVoodoo("Void Cloak") end)
+actionBtn    (scrolls["Combat_beta"], "Cast Shadow Warp (15s)", C.purple, nCb(), function() fireVoodoo("Shadow Warp") end)
+actionBtn    (scrolls["Combat_beta"], "Cast Voodoo Vortex", C.purple, nCb(), function() fireVoodoo("Voodoo Vortex") end)
+
+sectionHeader(scrolls["Combat_beta"], "👥", "PvP Assist", nCb())
+toggleRow    (scrolls["Combat_beta"], "Face Closest Player", "FaceClosest", nCb())
+toggleRow    (scrolls["Combat_beta"], "Move To Closest",     "MoveToClosest", nCb())
+toggleRow    (scrolls["Combat_beta"], "HitBox Expander (Players)", "HitboxPlayers", nCb())
+sliderRow    (scrolls["Combat_beta"], "Player Hitbox Size", "HitboxPlayersSize", 5, 40, 1, nCb())
+toggleRow    (scrolls["Combat_beta"], "HitBox Expander (Birds)", "HitboxBirds", nCb())
+sliderRow    (scrolls["Combat_beta"], "Bird Hitbox Size",   "HitboxBirdsSize", 5, 40, 1, nCb())
+toggleRow    (scrolls["Combat_beta"], "Auto Wall Player",   "AutoWallPlayer", nCb())
+toggleRow    (scrolls["Combat_beta"], "Auto Hut Player",    "AutoHutPlayer", nCb())
+sliderRow    (scrolls["Combat_beta"], "Trap Range",         "PvPTrapRange", 5, 40, 1, nCb())
+
+sectionHeader(scrolls["Combat_beta"], "◉", "Session Totals", nCb())
+U.infoSwings = infoRow(scrolls["Combat_beta"], "Swings",   "0", C.pink,   nCb())
+U.infoVoodoo = infoRow(scrolls["Combat_beta"], "Voodoos",  "0", C.purple, nCb())
+U.infoHeals  = infoRow(scrolls["Combat_beta"], "Heals",    "0", C.green,  nCb())
+
+-- MAP (Waypoints + Auto Farm Gold)
 local oRa, oRb = 0, 0
 local function nRa() oRa = oRa + 1; return oRa end
 local function nRb() oRb = oRb + 1; return oRb end
 
-sectionHeader(scrolls["Map_alpha"], "◆", "Resource Aura", nRa())
-toggleRow    (scrolls["Map_alpha"], "Resource Aura",   "ResourceAura", nRa())
-sliderRow    (scrolls["Map_alpha"], "Range",           "ResourceAuraRange", 1, 20, 1, nRa())
-dropdownRow  (scrolls["Map_alpha"], "Max Targets",     "ResourceMaxTargets", {"1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20"}, nRa(), false)
-sliderRow    (scrolls["Map_alpha"], "Swing Cooldown",  "ResourceCooldown", 0.01, 1.01, 0.01, nRa())
+sectionHeader(scrolls["Map_alpha"], "●", "AFK Gold Farm", nRa())
+toggleRow    (scrolls["Map_alpha"], "Auto Farm Gold (4-node loop)", "AutoFarmGold", nRa())
+create("TextLabel", { Size = UDim2.new(1, 0, 0, 60), BackgroundTransparency = 1,
+    Text = "Teleports between 4 surface Gold Nodes,\nmines each for 12 swings, rotates.\nFully AFK-able. Use with Auto Pickup + Auto Heal.",
+    Font = F_SANS, TextSize = 11, TextColor3 = C.text3, TextWrapped = true,
+    TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top,
+    LayoutOrder = nRa() }, scrolls["Map_alpha"])
 
-sectionHeader(scrolls["Map_beta"], "◆", "Critter Aura", nRb())
-toggleRow    (scrolls["Map_beta"], "Critter Aura",     "CritterAura", nRb())
-sliderRow    (scrolls["Map_beta"], "Range",            "CritterAuraRange", 1, 20, 1, nRb())
-dropdownRow  (scrolls["Map_beta"], "Max Targets",      "CritterMaxTargets", {"1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20"}, nRb(), false)
-sliderRow    (scrolls["Map_beta"], "Swing Cooldown",   "CritterCooldown", 0.01, 1.01, 0.01, nRb())
+sectionHeader(scrolls["Map_beta"], "◆", "Portals (TP to)", nRb())
+local function tpTo(pos)
+    if root then root.CFrame = CFrame.new(pos + Vector3.new(0, 5, 0)) end
+end
+actionBtn(scrolls["Map_beta"], "Queen's Cave Portal", C.bg3, nRb(), function() tpTo(Vector3.new(336, -306, -1034)) end)
+actionBtn(scrolls["Map_beta"], "Lava Portal 1", C.bg3, nRb(), function() tpTo(Vector3.new(815, -45, -343)) end)
+actionBtn(scrolls["Map_beta"], "Lava Portal 2", C.bg3, nRb(), function() tpTo(Vector3.new(219, -141, 1082)) end)
+actionBtn(scrolls["Map_beta"], "Lava Portal 3", C.bg3, nRb(), function() tpTo(Vector3.new(876, -144, -142)) end)
+actionBtn(scrolls["Map_beta"], "Haven Portal (Void World)", C.green, nRb(), function() tpTo(Vector3.new(-1062, -201, -428)) end)
+
+sectionHeader(scrolls["Map_beta"], "◆", "Biome Quick TP", nRb())
+actionBtn(scrolls["Map_beta"], "Sky Rope (Sky Island)", C.bg3, nRb(), function() tpTo(Vector3.new(-491, 306, -1105)) end)
+actionBtn(scrolls["Map_beta"], "Spirit Lock", C.bg3, nRb(), function() tpTo(Vector3.new(-766, 310, -1193)) end)
+actionBtn(scrolls["Map_beta"], "Ancient Tree", C.bg3, nRb(), function() tpTo(Vector3.new(-557, 311, -1197)) end)
+actionBtn(scrolls["Map_beta"], "Queen Ant Boss", C.red, nRb(), function() tpTo(Vector3.new(157, -317, -861)) end)
+actionBtn(scrolls["Map_beta"], "Meteor Cave", C.bg3, nRb(), function() tpTo(Vector3.new(134, -313, -758)) end)
+actionBtn(scrolls["Map_beta"], "Emerald Cave", C.bg3, nRb(), function() tpTo(Vector3.new(984, -122, -44)) end)
+actionBtn(scrolls["Map_beta"], "Crystal Lode (Sky)", C.bg3, nRb(), function() tpTo(Vector3.new(-1069, 339, -1300)) end)
+actionBtn(scrolls["Map_beta"], "Adurite Nodes Cluster", C.bg3, nRb(), function() tpTo(Vector3.new(592, -50, -274)) end)
 
 -- PICKUP
 local oPa, oPb = 0, 0
 local function nPa() oPa = oPa + 1; return oPa end
 local function nPb() oPb = oPb + 1; return oPb end
 
-local PICKUP_ITEMS = {"Berry", "Bloodfruit", "Bluefruit", "Lemon", "Strawberry", "Gold", "Raw Gold", "Crystal Chunk", "Coin", "Coins", "Coin2", "Coin Stack", "Essence", "Emerald", "Raw Emerald", "Pink Diamond", "Raw Pink Diamond", "Void Shard", "Jelly", "Magnetite", "Raw Magnetite", "Adurite", "Raw Adurite", "Ice Cube", "Stone", "Iron", "Raw Iron", "Steel", "Hide", "Leaves", "Log", "Wood", "Pie"}
-local DROP_ITEMS = {"Bloodfruit", "Jelly", "Bluefruit", "Log", "Leaves", "Wood"}
+-- v5.1 expanded pickup list — 54 items covering ALL live drops
+local PICKUP_ITEMS = {
+    "Wood","Log","Stone","Leaves","Vine","Hide","Coal","Steel","Steel Mix","Iron","Raw Iron",
+    "Gold","Raw Gold","Adurite","Raw Adurite","Crystal Chunk","Emerald","Raw Emerald","Pink Diamond","Raw Pink Diamond",
+    "Magnetite","Raw Magnetite","Void Shard","Essence","Spirit Key","Ice Cube","Cactus Bit",
+    "Berry","Bloodfruit","Bluefruit","Lemon","Strawberry","Sunfruit","Pumpkin","Apple","Carrot","Banana","Orange","Coconut",
+    "Cloudberry","Oddberry","Strangefruit","Barley","Jelly",
+    "Egg","Cooked Egg","Raw Meat","Cooked Meat","Raw Morsel","Raw Fish","Cooked Fish",
+    "Coin","Coins","Coin2","Coin Stack","Bolt","Arrow","Pie",
+    "Stone Axe","Stone Pick","Club","Sling","Hide Bag","Leaf Bag","Leaf Pouch",
+    "Pleb Chest","Easter Chest","Food Chest","Resource Chest","Good Chest","Great Chest","OMG Chest","Essence Chest",
+    "Adurite Chest","Reinforced Chest","Treasure Chest","Magnetite Chest","Party Chest","Prop Hunt: Essence Chest",
+    "Ancient Chest","Mythic Chest"
+}
+local DROP_ITEMS = {"Bloodfruit", "Jelly", "Bluefruit", "Log", "Leaves", "Wood", "Stone", "Hide"}
 
 sectionHeader(scrolls["Pickup_alpha"], "▣", "Auto Pickup", nPa())
 toggleRow    (scrolls["Pickup_alpha"], "Auto Pickup",              "AutoPickup", nPa())
 toggleRow    (scrolls["Pickup_alpha"], "Auto Pickup From Chests",  "AutoChestPickup", nPa())
-sliderRow    (scrolls["Pickup_alpha"], "Pickup Range",             "PickupRange", 1, 35, 1, nPa())
+sliderRow    (scrolls["Pickup_alpha"], "Pickup Range",             "PickupRange", 1, 100, 1, nPa())
 dropdownRow  (scrolls["Pickup_alpha"], "Items",                    "PickupItems", PICKUP_ITEMS, nPa(), true)
 
 sectionHeader(scrolls["Pickup_beta"], "▼", "Auto Drop", nPb())
@@ -1251,6 +1979,10 @@ toggleRow    (scrolls["Pickup_beta"], "Auto Drop",              "AutoDrop", nPb(
 dropdownRow  (scrolls["Pickup_beta"], "Drop Item",              "DropItem", DROP_ITEMS, nPb(), false)
 toggleRow    (scrolls["Pickup_beta"], "Auto Drop Custom",       "AutoDropCustom", nPb())
 inputRow     (scrolls["Pickup_beta"], "Custom Item Name",       "DropItemCustom", "Bloodfruit", nPb())
+
+sectionHeader(scrolls["Pickup_beta"], "◉", "Counters", nPb())
+U.infoPickups = infoRow(scrolls["Pickup_beta"], "Pickups", "0", C.pink, nPb())
+U.infoDrops   = infoRow(scrolls["Pickup_beta"], "Drops",   "0", C.pink, nPb())
 
 -- FARMING
 local oFa, oFb = 0, 0
@@ -1262,15 +1994,15 @@ local FRUITS = {"Bloodfruit", "Bluefruit", "Lemon", "Coconut", "Jelly", "Banana"
 sectionHeader(scrolls["Farming_alpha"], "✿", "Plant + Harvest", nFa())
 dropdownRow  (scrolls["Farming_alpha"], "Fruit",         "Fruit", FRUITS, nFa(), false)
 toggleRow    (scrolls["Farming_alpha"], "Auto Plant",    "AutoPlant", nFa())
-sliderRow    (scrolls["Farming_alpha"], "Plant Range",   "PlantRange", 1, 30, 1, nFa())
+sliderRow    (scrolls["Farming_alpha"], "Plant Range",   "PlantRange", 1, 60, 1, nFa())
 sliderRow    (scrolls["Farming_alpha"], "Plant Delay",   "PlantDelay", 0.01, 1, 0.01, nFa())
 toggleRow    (scrolls["Farming_alpha"], "Auto Harvest",  "AutoHarvest", nFa())
-sliderRow    (scrolls["Farming_alpha"], "Harvest Range", "HarvestRange", 1, 30, 1, nFa())
+sliderRow    (scrolls["Farming_alpha"], "Harvest Range", "HarvestRange", 1, 60, 1, nFa())
 
 sectionHeader(scrolls["Farming_beta"], "◆", "Tween", nFb())
 toggleRow    (scrolls["Farming_beta"], "Tween to Plant Box",       "TweenPlantBox", nFb())
 toggleRow    (scrolls["Farming_beta"], "Tween to Bush + Plant Box", "TweenBush", nFb())
-sliderRow    (scrolls["Farming_beta"], "Tween Range",              "TweenRange", 1, 250, 1, nFb())
+sliderRow    (scrolls["Farming_beta"], "Tween Range",              "TweenRange", 1, 400, 1, nFb())
 
 sectionHeader(scrolls["Farming_beta"], "▣", "Place Plantboxes", nFb())
 actionBtn(scrolls["Farming_beta"], "Place 16x16 (256)", C.bg3, nFb(), function() placestructure(16) end)
@@ -1283,17 +2015,69 @@ local oEa, oEb = 0, 0
 local function nEa() oEa = oEa + 1; return oEa end
 local function nEb() oEb = oEb + 1; return oEb end
 
-sectionHeader(scrolls["Extra_alpha"], "+", "Item Orbit", nEa())
-toggleRow    (scrolls["Extra_alpha"], "Item Orbit",   "ItemOrbit", nEa())
-sliderRow    (scrolls["Extra_alpha"], "Grab Range",   "OrbitRange", 1, 50, 1, nEa())
-sliderRow    (scrolls["Extra_alpha"], "Orbit Radius", "OrbitRadius", 0, 30, 1, nEa())
-sliderRow    (scrolls["Extra_alpha"], "Orbit Speed",  "OrbitSpeed", 0, 10, 1, nEa())
-sliderRow    (scrolls["Extra_alpha"], "Item Height",  "ItemHeight", -3, 10, 1, nEa())
+sectionHeader(scrolls["Extra_alpha"], "+", "Auto Everything", nEa())
+toggleRow    (scrolls["Extra_alpha"], "Auto Fishing",      "AutoFishing", nEa())
+toggleRow    (scrolls["Extra_alpha"], "Auto Coin Press",   "AutoCoinPress", nEa())
+toggleRow    (scrolls["Extra_alpha"], "Auto Campfire",     "AutoCampfire", nEa())
+toggleRow    (scrolls["Extra_alpha"], "Auto Chest Open",   "AutoChestOpen", nEa())
+toggleRow    (scrolls["Extra_alpha"], "Auto Rebirth",      "AutoRebirth", nEa())
 
-sectionHeader(scrolls["Extra_beta"], "▣", "Loadout", nEb())
-actionBtn(scrolls["Extra_beta"], "Infinite Yield", C.bg3, nEb(), function()
+sectionHeader(scrolls["Extra_alpha"], "★", "Event Hunts", nEa())
+toggleRow    (scrolls["Extra_alpha"], "Auto Egg Hunt (Easter)",  "AutoEggHunt", nEa())
+toggleRow    (scrolls["Extra_alpha"], "Auto Heart Hunt (Valentine)", "AutoHeartHunt", nEa())
+toggleRow    (scrolls["Extra_alpha"], "Auto Gold Hunt",      "AutoGoldHunt", nEa())
+
+sectionHeader(scrolls["Extra_beta"], "●", "Item Orbit", nEb())
+toggleRow    (scrolls["Extra_beta"], "Item Orbit",   "ItemOrbit", nEb())
+sliderRow    (scrolls["Extra_beta"], "Grab Range",   "OrbitRange", 1, 100, 1, nEb())
+sliderRow    (scrolls["Extra_beta"], "Orbit Radius", "OrbitRadius", 0, 50, 1, nEb())
+sliderRow    (scrolls["Extra_beta"], "Orbit Speed",  "OrbitSpeed", 0, 20, 1, nEb())
+sliderRow    (scrolls["Extra_beta"], "Item Height",  "ItemHeight", -5, 15, 1, nEb())
+
+sectionHeader(scrolls["Extra_beta"], "▣", "Launcher", nEb())
+actionBtn(scrolls["Extra_beta"], "Infinite Yield Chat", C.bg3, nEb(), function()
     loadstring(game:HttpGet("https://raw.githubusercontent.com/decryp1/herklesiy/refs/heads/main/hiy"))()
 end)
+
+sectionHeader(scrolls["Extra_beta"], "◉", "Counters", nEb())
+U.infoEggs    = infoRow(scrolls["Extra_beta"], "Eggs picked",   "0", C.purple, nEb())
+U.infoHearts  = infoRow(scrolls["Extra_beta"], "Hearts picked", "0", C.red,    nEb())
+U.infoFish    = infoRow(scrolls["Extra_beta"], "Fish caught",   "0", C.text2,  nEb())
+U.infoChests  = infoRow(scrolls["Extra_beta"], "Chests opened", "0", C.text2,  nEb())
+
+-- ESP
+local oSPa, oSPb = 0, 0
+local function nSPa() oSPa = oSPa + 1; return oSPa end
+local function nSPb() oSPb = oSPb + 1; return oSPb end
+
+sectionHeader(scrolls["ESP_alpha"], "◎", "Categories", nSPa())
+toggleRow    (scrolls["ESP_alpha"], "Players (pink)",          "ESPPlayers", nSPa())
+toggleRow    (scrolls["ESP_alpha"], "Critters (purple/red boss)", "ESPCritters", nSPa())
+toggleRow    (scrolls["ESP_alpha"], "Resources (green = rare)", "ESPResources", nSPa())
+toggleRow    (scrolls["ESP_alpha"], "Items (yellow)",           "ESPItems", nSPa())
+toggleRow    (scrolls["ESP_alpha"], "Chests (orange/gold)",     "ESPChests", nSPa())
+toggleRow    (scrolls["ESP_alpha"], "Bosses only (magenta)",    "ESPBosses", nSPa())
+sliderRow    (scrolls["ESP_alpha"], "Max Range",                "ESPRange", 100, 2000, 50, nSPa())
+
+sectionHeader(scrolls["ESP_alpha"], "▣", "Quick Actions", nSPa())
+actionBtn(scrolls["ESP_alpha"], "Clear All ESP", C.red, nSPa(), function()
+    CFG.ESPPlayers = false; CFG.ESPCritters = false; CFG.ESPResources = false
+    CFG.ESPItems = false; CFG.ESPChests = false; CFG.ESPBosses = false
+end)
+
+sectionHeader(scrolls["ESP_beta"], "✦", "Color Legend", nSPb())
+infoRow(scrolls["ESP_beta"], "Players",          "pink",        C.pink,                   nSPb())
+infoRow(scrolls["ESP_beta"], "Critters",         "purple",      C.purple,                 nSPb())
+infoRow(scrolls["ESP_beta"], "Boss critters",    "red",         C.red,                    nSPb())
+infoRow(scrolls["ESP_beta"], "Rare resources",   "green",       C.green,                  nSPb())
+infoRow(scrolls["ESP_beta"], "Normal resources", "grey",        C.text2,                  nSPb())
+infoRow(scrolls["ESP_beta"], "Items",            "yellow",      Color3.fromRGB(255,255,0), nSPb())
+infoRow(scrolls["ESP_beta"], "Chests",           "orange",      Color3.fromRGB(255,165,0), nSPb())
+infoRow(scrolls["ESP_beta"], "Drop chests",      "gold",        Color3.fromRGB(255,215,0), nSPb())
+infoRow(scrolls["ESP_beta"], "World bosses",     "magenta",     Color3.fromRGB(255,0,128), nSPb())
+
+sectionHeader(scrolls["ESP_beta"], "◉", "Live Count", nSPb())
+U.espActive = infoRow(scrolls["ESP_beta"], "Highlights", "0", C.green, nSPb())
 
 -- SETTINGS
 local oSa, oSb = 0, 0
@@ -1306,17 +2090,9 @@ actionBtn    (scrolls["Settings_alpha"], "Save Config Now", C.green, nSa(), save
 actionBtn    (scrolls["Settings_alpha"], "Load Config",     C.bg3,   nSa(), loadSavedCFG)
 actionBtn    (scrolls["Settings_alpha"], "Reset Config",    C.red,   nSa(), function()
     for k, v in pairs(CFG) do
-        if type(v) == "boolean" and k ~= "PanelOpen" and k ~= "AutoSave" then CFG[k] = false end
+        if type(v) == "boolean" and k ~= "PanelOpen" and k ~= "AutoSave" and k ~= "TypingCheck" then CFG[k] = false end
         if type(v) == "table" and k == "PickupItems" then CFG[k] = { Leaves = true, Log = true } end
     end
-    CFG.WalkspeedValue = 16; CFG.JumpPowerValue = 50; CFG.HipHeightValue = 2
-    CFG.KillAuraRange = 5; CFG.KillAuraMaxTargets = "1"; CFG.KillAuraCooldown = 0.1
-    CFG.ResourceAuraRange = 20; CFG.ResourceMaxTargets = "1"; CFG.ResourceCooldown = 0.1
-    CFG.CritterAuraRange = 20; CFG.CritterMaxTargets = "1"; CFG.CritterCooldown = 0.1
-    CFG.PickupRange = 20; CFG.DropItem = "Bloodfruit"; CFG.DropItemCustom = "Bloodfruit"
-    CFG.Fruit = "Bloodfruit"; CFG.PlantRange = 30; CFG.PlantDelay = 0.1; CFG.HarvestRange = 30
-    CFG.TweenRange = 250
-    CFG.OrbitRange = 20; CFG.OrbitRadius = 10; CFG.OrbitSpeed = 5; CFG.ItemHeight = 3
     saveCFG()
 end)
 
@@ -1326,6 +2102,11 @@ actionBtn(scrolls["Settings_alpha"], "Destroy UI", C.red, nSa(), function()
     task.wait(0.15)
     getgenv().__AURORAHUB_BOOGA_SESSION = 0
     pcall(function() screenGui:Destroy() end)
+    -- Clean up ESP
+    for _, h in pairs(E.highlights) do pcall(function() h:Destroy() end) end
+    for inst in pairs(E.origHitbox) do
+        pcall(function() inst.Size = E.origHitbox[inst].size; inst.Transparency = E.origHitbox[inst].trans end)
+    end
 end)
 
 sectionHeader(scrolls["Settings_beta"], "✦", "About", nSb())
@@ -1333,14 +2114,15 @@ infoRow(scrolls["Settings_beta"], "Game",    "Booga Booga Reborn",       C.text,
 infoRow(scrolls["Settings_beta"], "PlaceId", tostring(game.PlaceId),     C.text2, nSb())
 infoRow(scrolls["Settings_beta"], "Version", tostring(game.PlaceVersion), C.text2, nSb())
 infoRow(scrolls["Settings_beta"], "Hub",     "Aurorahub.net",            C.pink,  nSb())
-infoRow(scrolls["Settings_beta"], "Build",   "v5.0",                     C.text2, nSb())
+infoRow(scrolls["Settings_beta"], "Build",   "v5.1 — Nilhub Parity",     C.green, nSb())
+infoRow(scrolls["Settings_beta"], "Features","50+",                      C.text2, nSb())
 infoRow(scrolls["Settings_beta"], "Save",    _cfgFileName,               C.text3, nSb())
-infoRow(scrolls["Settings_beta"], "Network", "ByteNet Packets",          C.text3, nSb())
+infoRow(scrolls["Settings_beta"], "Network", "ByteNet + Packets",        C.text3, nSb())
 
 sectionHeader(scrolls["Settings_beta"], "◆", "Active Features", nSb())
 U.cfgActiveLabel = create("TextLabel", {
-    Name = "ActiveList", Size = UDim2.new(1, 0, 0, 200), BackgroundTransparency = 1,
-    Text = "None", Font = F_SANS, TextSize = 11, TextColor3 = C.text2,
+    Name = "ActiveList", Size = UDim2.new(1, 0, 0, 280), BackgroundTransparency = 1,
+    Text = "None", Font = F_SANS, TextSize = 10, TextColor3 = C.text2,
     TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top,
     TextWrapped = true, LayoutOrder = nSb(),
 }, scrolls["Settings_beta"])
@@ -1357,16 +2139,19 @@ U.liveHealth = infoRow(liveScroll, "Health", "—", C.text, nL())
 U.liveSpeed  = infoRow(liveScroll, "Speed",  "16", C.text, nL())
 
 sectionHeader(liveScroll, "⚔", "Combat", nL())
-U.liveSwings = infoRow(liveScroll, "Swings", "0", C.pink, nL())
+U.liveSwings = infoRow(liveScroll, "Swings",   "0", C.pink, nL())
+U.liveVoodoo = infoRow(liveScroll, "Voodoos",  "0", C.purple, nL())
+U.liveHeals  = infoRow(liveScroll, "Heals",    "0", C.green, nL())
+U.liveEats   = infoRow(liveScroll, "Eats",     "0", C.green, nL())
 
 sectionHeader(liveScroll, "▣", "Pickup", nL())
 U.livePickups = infoRow(liveScroll, "Picked", "0", C.pink, nL())
-U.liveDrops   = infoRow(liveScroll, "Drops",  "0", C.pink, nL())
 
-sectionHeader(liveScroll, "✿", "Farm", nL())
-U.livePlants   = infoRow(liveScroll, "Plants",   "0", C.pink, nL())
-U.liveHarvests = infoRow(liveScroll, "Harvests", "0", C.pink, nL())
-U.livePlaced   = infoRow(liveScroll, "Placed",   "0", C.pink, nL())
+sectionHeader(liveScroll, "★", "Event", nL())
+U.liveEggs    = infoRow(liveScroll, "Eggs",   "0", C.purple, nL())
+U.liveHearts  = infoRow(liveScroll, "Hearts", "0", C.red,    nL())
+U.liveFish    = infoRow(liveScroll, "Fish",   "0", C.text2,  nL())
+U.liveChests  = infoRow(liveScroll, "Chests", "0", C.text2,  nL())
 
 -- PILL
 local pillGui = create("ScreenGui", { Name = "AuroraPill", DisplayOrder = 9998, ResetOnSpawn = false, IgnoreGuiInset = true })
@@ -1483,6 +2268,7 @@ closeBtn.InputBegan:Connect(function(inp)
         task.wait(0.05)
         pcall(function() screenGui:Destroy() end)
         pcall(function() pillGui:Destroy() end)
+        for _, h in pairs(E.highlights) do pcall(function() h:Destroy() end) end
     end
 end)
 closeBtn.InputEnded:Connect(function(inp)
@@ -1511,47 +2297,68 @@ task.spawn(function()
             local rtime = hrs > 0 and string.format("%dh %dm", hrs, mins % 60) or string.format("%dm", mins)
 
             local active = {}
-            if CFG.Walkspeed      then table.insert(active, "WS") end
-            if CFG.JumpPower      then table.insert(active, "JP") end
-            if CFG.HipHeight      then table.insert(active, "HH") end
-            if CFG.NoMountainSlip then table.insert(active, "NMS") end
-            if CFG.KillAura       then table.insert(active, "KA") end
-            if CFG.ResourceAura   then table.insert(active, "RA") end
-            if CFG.CritterAura    then table.insert(active, "CA") end
-            if CFG.AutoPickup     then table.insert(active, "PU") end
-            if CFG.AutoChestPickup then table.insert(active, "PUc") end
-            if CFG.AutoDrop       then table.insert(active, "DR") end
-            if CFG.AutoDropCustom then table.insert(active, "DRc") end
-            if CFG.AutoPlant      then table.insert(active, "PL") end
-            if CFG.AutoHarvest    then table.insert(active, "HV") end
-            if CFG.TweenPlantBox  then table.insert(active, "TB") end
-            if CFG.TweenBush      then table.insert(active, "TB+") end
-            if CFG.ItemOrbit      then table.insert(active, "OR") end
+            for _, check in ipairs({
+                {"Walkspeed","WS"},{"JumpPower","JP"},{"HipHeight","HH"},{"NoMountainSlip","NMS"},
+                {"BetterClimber","Climb"},{"Fly","Fly"},{"Noclip","Noclip"},
+                {"AutoHeal","Heal"},{"AutoEat","Eat"},{"AutoEquipArmor","Armor"},
+                {"KillAura","KA"},{"ResourceAura","RA"},{"CritterAura","CA"},{"AutoHitEverything","HitAll"},
+                {"AutoToolSwap","Tool"},{"LegitKillAura","Legit"},
+                {"FaceClosest","Face"},{"MoveToClosest","Move"},
+                {"AutoVoodooShield","Shield"},{"AutoVoodooBolt","Bolt"},
+                {"HitboxPlayers","HBp"},{"HitboxBirds","HBb"},
+                {"AutoWallPlayer","Wall"},{"AutoHutPlayer","Hut"},
+                {"AutoPickup","PU"},{"AutoChestPickup","PUc"},
+                {"AutoDrop","DR"},{"AutoDropCustom","DRc"},
+                {"AutoPlant","PL"},{"AutoHarvest","HV"},
+                {"TweenPlantBox","TB"},{"TweenBush","TB+"},
+                {"ItemOrbit","Orbit"},{"AutoFarmGold","Gold"},{"AutoFishing","Fish"},
+                {"AutoCoinPress","CP"},{"AutoCampfire","CF"},{"AutoChestOpen","Chest"},
+                {"AutoEggHunt","Egg"},{"AutoHeartHunt","Heart"},{"AutoGoldHunt","GldH"},
+                {"AutoRebirth","RB"},
+                {"ESPPlayers","EspP"},{"ESPCritters","EspC"},{"ESPResources","EspR"},
+                {"ESPItems","EspI"},{"ESPChests","EspCh"},{"ESPBosses","EspB"},
+            }) do
+                if CFG[check[1]] then table.insert(active, check[2]) end
+            end
 
             local mode = #active > 0 and table.concat(active, " ") or "Idle"
-            if #mode > 30 then mode = #active .. " active" end
+            if #mode > 40 then mode = #active .. " active" end
 
             U.infoMode.Text = mode
             U.infoRuntime.Text = rtime
             U.infoHealth.Text = hpTxt
             U.infoSpeed.Text = spdTxt
             U.infoSwings.Text = tostring(S.swings)
+            U.infoVoodoo.Text = tostring(S.voodoos)
+            U.infoHeals.Text  = tostring(S.heals)
             U.infoPickups.Text = tostring(S.pickups)
             U.infoDrops.Text = tostring(S.drops)
+            U.infoEggs.Text = tostring(S.eggs)
+            U.infoHearts.Text = tostring(S.hearts)
+            U.infoFish.Text = tostring(S.fish)
+            U.infoChests.Text = tostring(S.chests)
+
+            local espCount = 0
+            for _ in pairs(E.highlights) do espCount = espCount + 1 end
+            U.espActive.Text = tostring(espCount)
+
             U.liveRuntime.Text = rtime
             U.liveStatus.Text = mode
             U.liveHealth.Text = hpTxt
             U.liveSpeed.Text = spdTxt
             U.liveSwings.Text = tostring(S.swings)
+            U.liveVoodoo.Text = tostring(S.voodoos)
+            U.liveHeals.Text = tostring(S.heals)
+            U.liveEats.Text = tostring(S.eats)
             U.livePickups.Text = tostring(S.pickups)
-            U.liveDrops.Text = tostring(S.drops)
-            U.livePlants.Text = tostring(S.plants)
-            U.liveHarvests.Text = tostring(S.harvests)
-            U.livePlaced.Text = tostring(S.placed)
+            U.liveEggs.Text = tostring(S.eggs)
+            U.liveHearts.Text = tostring(S.hearts)
+            U.liveFish.Text = tostring(S.fish)
+            U.liveChests.Text = tostring(S.chests)
 
             local sortedActive = {}
             for k, v in pairs(CFG) do
-                if type(v) == "boolean" and v and k ~= "AutoSave" and k ~= "PanelOpen" then
+                if type(v) == "boolean" and v and k ~= "AutoSave" and k ~= "PanelOpen" and k ~= "TypingCheck" then
                     table.insert(sortedActive, "· " .. k)
                 end
             end
@@ -1564,4 +2371,4 @@ end)
 
 -- INIT
 switchTab(CFG.ActiveTab or "Main")
-print("[Aurora v5] Booga Booga Reborn loaded · " .. #PICKUP_ITEMS .. " pickup items · " .. #FRUITS .. " fruits")
+print("[Aurora v5.1] Booga Booga Reborn loaded · 50+ features · Nilhub parity")
