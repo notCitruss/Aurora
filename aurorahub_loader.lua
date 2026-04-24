@@ -1291,10 +1291,21 @@ if scriptName and savedKey then
     loadStatus.Text = "Downloading..."
     local success, result = pcall(function() return game:HttpGet(url) end)
 
-    -- If private script not found, fall back to public version
-    if tier == "private" and (not success or not result or result:find("script not found")) then
+    -- Private-path failure → fall back to public path on ANY error signal:
+    -- short body (< 1KB = can only be an error message), fetch fail, or nil result.
+    -- Previously only matched "script not found" which missed cases like
+    -- "-- Aurora Private required" when tier state desyncs between validate and /script.
+    if tier == "private" and (not success or not result or #result < 1024) then
         url = BASE_URL .. scriptName .. "?key=" .. savedKey .. "&uid=" .. uid .. "&lock=" .. HWID
         success, result = pcall(function() return game:HttpGet(url) end)
+    end
+
+    -- Surface the Worker's actual error on screen when fetch ultimately fails,
+    -- so we can see exactly why the server rejected the request (instead of a
+    -- generic "Failed to download"). Stored for display below.
+    local _failReason = ""
+    if not (success and result and #result > 50) then
+        _failReason = " [" .. (success and tostring(result or ""):sub(1, 120) or "HttpGet errored") .. "]"
     end
 
     if success and result and #result > 50 then
@@ -1359,11 +1370,11 @@ if scriptName and savedKey then
             end
         end)
     else
-        loadStatus.Text = "Failed to download script"
+        loadStatus.Text = "Failed to download script" .. _failReason
         loadStatus.TextColor3 = Color3.fromRGB(255, 80, 80)
-        task.wait(3)
+        task.wait(8)
         pcall(function() loadGui:Destroy() end)
-        warn("[Aurora] Failed to download script for: " .. tostring(scriptName))
+        warn("[Aurora] Failed to download script for: " .. tostring(scriptName) .. _failReason)
     end
 elseif not scriptName then
     warn("[Aurora] No script available for this game")
