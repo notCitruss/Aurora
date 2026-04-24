@@ -33,6 +33,7 @@ local GAMES_BY_ID = {
     [77747658251236]  = "sailor_piece",
     [81535567274521]  = "bee_garden",
     [119048529960596] = "restaurant_tycoon_3",
+    [89469502395769]  = "kick_a_lucky_block",
 }
 
 local GAMES_BY_NAME = {
@@ -52,6 +53,7 @@ local GAMES_BY_NAME = {
     ["[fusing]"]              = "bee_garden",
     ["restaurant tycoon 3"]   = "restaurant_tycoon_3",
     ["restaurant tycoon"]     = "restaurant_tycoon_3",
+    ["kick a lucky block"]    = "kick_a_lucky_block",
 }
 
 ---------- HWID ----------
