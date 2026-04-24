@@ -102,17 +102,10 @@ local Players = cloneref(game:GetService("Players"))
 local ReplicatedStorage = cloneref(game:GetService("ReplicatedStorage"))
 
 --// Compatibility Check \\--
--- Diagnostic: print what WS-related globals the executor exposes
-print("[Aurora] WS diag — WebSocket:", typeof(WebSocket),
-      "WebSocket.connect:", typeof(WebSocket) == "table" and typeof(WebSocket.connect) or "n/a",
-      "syn.websocket:", typeof(syn) == "table" and typeof(syn.websocket) or "n/a",
-      "http.websocket:", typeof(http) == "table" and typeof(http.websocket) or "n/a")
-
 local WebSocketAvailable = (
     typeof(WebSocket) ~= "nil" and
     typeof(WebSocket.connect) == "function"
 ) and (getgenv().DisableWebSocket ~= true)
-print("[Aurora] WebSocketAvailable:", WebSocketAvailable)
 
 --// Registration Info \\--
 local function GetRegistrationInfo()
@@ -193,7 +186,7 @@ local BaseBridge = {}; do
             end)
 
             local start = os.clock()
-            repeat task.wait(0.05) until response ~= nil or os.clock() - start > 0.5
+            repeat task.wait(0.05) until response ~= nil or os.clock() - start > 2
 
             if response == nil then
                 task.cancel(thread)
@@ -225,8 +218,8 @@ local WebSocketBridge = setmetatable({}, {__index = BaseBridge}); do
     
         --// Yield until the server is alive with exponential backoff \\--
         local retryDelay = 0.5
-        local maxRetryDelay = 3
-        local maxAttempts = 5
+        local maxRetryDelay = 5
+        local maxAttempts = 10
         local attempts = 0
         
         while not self:IsAlive() do
@@ -250,7 +243,7 @@ local WebSocketBridge = setmetatable({}, {__index = BaseBridge}); do
         end)
         
         local connectionStart = os.clock()
-        repeat task.wait(0.05) until wsConnection ~= nil or os.clock() - connectionStart > 8
+        repeat task.wait(0.05) until wsConnection ~= nil or os.clock() - connectionStart > 3
 
         if wsConnection == nil then
             task.cancel(connectionThread)
@@ -320,8 +313,8 @@ local HTTPBridge = setmetatable({}, {__index = BaseBridge}); do
     
         --// Yield until the server is alive with exponential backoff \\--
         local retryDelay = 0.5
-        local maxRetryDelay = 3
-        local maxAttempts = 5
+        local maxRetryDelay = 5
+        local maxAttempts = 10
         local attempts = 0
         
         while not self:IsAlive() do
@@ -430,16 +423,8 @@ local function CreateBridge()
         if success then
             return bridge
         else
-            warn("[Aurora] WebSocket bridge failed: " .. tostring(bridge))
+            warn("WebSocket bridge failed to initialize, falling back to HTTP polling: " .. tostring(bridge))
         end
-    else
-        warn("[Aurora] WebSocket not available on this executor (WebSocket.connect missing).")
-    end
-
-    -- HTTP fallback is OFF by default because on WS-only bridges it storms.
-    -- Set getgenv().AllowHttpFallback = true before loading if your bridge supports /poll.
-    if not getgenv().AllowHttpFallback then
-        error("[Aurora] WS unavailable + HTTP fallback disabled. Check executor WebSocket support, or set getgenv().AllowHttpFallback=true if your bridge supports HTTP polling.")
     end
 
     return HTTPBridge.new()
@@ -560,12 +545,8 @@ local function StartScriptMapping()
     end)
 end
 
---// Script decompile mapping is OPT-IN — it decompiles every script in the game
--- via remote HTTP service (~200ms per script), which causes 30-60s freezes on
--- load for large games. Set getgenv().EnableInitialScriptDecompMapping=true
--- before loading the connector to enable it. Otherwise MCP 'search-scripts' /
--- 'decompile' requests will decompile on-demand (first hit ~200ms, then cached).
-if getgenv().EnableInitialScriptDecompMapping then
+--// Start mapping immediately unless disabled \\--
+if not getgenv().DisableInitialScriptDecompMapping then
     StartScriptMapping()
 end
 
@@ -1707,18 +1688,12 @@ do
     end
 end
 
---// Main Loop (wrapped in task.spawn so connector load doesn't block the caller) \\--
-task.spawn(function()
-local MAX_RECONNECT_ATTEMPTS = tonumber(getgenv().AuroraMaxReconnects) or 5
+--// Main Loop \\--
 local reconnectCount = 0
 while true do
     reconnectCount += 1
-    if reconnectCount > MAX_RECONNECT_ATTEMPTS then
-        warn("[Aurora] Hit " .. MAX_RECONNECT_ATTEMPTS .. " reconnect attempts. Giving up to prevent game freeze. Fix executor WebSocket and reload.")
-        break
-    end
     if reconnectCount > 1 then
-        print("[Aurora] Reconnecting... (attempt " .. tostring(reconnectCount) .. "/" .. MAX_RECONNECT_ATTEMPTS .. ")")
+        print("[Aurora] Reconnecting... (attempt " .. tostring(reconnectCount) .. ")")
     end
 
     local success, Bridge = pcall(CreateBridge)
@@ -2594,8 +2569,7 @@ while true do
 
     Bridge:WaitForDisconnect()
 
-    warn("[Aurora] Disconnected from MCP server. Reconnecting in 0.5s...")
-    task.wait(0.5)
+    warn("[Aurora] Disconnected from MCP server. Reconnecting in 2s...")
+    task.wait(2)
 end
-end)
 
