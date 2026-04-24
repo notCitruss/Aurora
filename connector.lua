@@ -1706,12 +1706,29 @@ end
 --// Main Loop (wrapped in task.spawn so connector load doesn't block the caller) \\--
 task.spawn(function()
 local reconnectCount = 0
+local lastConnectStart = 0
+local rapidReconnects = 0
 while true do
     -- Structural exit: bridge doesn't support HTTP polling on this server
     if getgenv().__AURORA_HTTP_UNSUPPORTED then
         warn("[Aurora] HTTP polling unsupported by bridge. Exiting reconnect loop. Reload with a WebSocket-capable executor to use MCP.")
         break
     end
+    -- Reconnect-storm breaker: if we reconnected within 5s of the last attempt, count it.
+    -- After 3 rapid reconnects (storm indicator), bail out — prevents the zombie-client pileup
+    -- that happens when WS falls back to HTTP but bridge is WS-only.
+    local now = os.clock()
+    if now - lastConnectStart < 5 and lastConnectStart > 0 then
+        rapidReconnects += 1
+        if rapidReconnects >= 3 then
+            warn("[Aurora] Reconnect storm detected (3+ reconnects within 5s). Giving up to protect game performance.")
+            warn("[Aurora] Likely cause: executor's WebSocket failing, bridge falling back to HTTP which is unsupported. Check executor WS or restart game.")
+            break
+        end
+    else
+        rapidReconnects = 0
+    end
+    lastConnectStart = now
     reconnectCount += 1
     if reconnectCount > 1 then
         print("[Aurora] Reconnecting... (attempt " .. tostring(reconnectCount) .. ")")
