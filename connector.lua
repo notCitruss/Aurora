@@ -360,6 +360,14 @@ local HTTPBridge = setmetatable({}, {__index = BaseBridge}); do
                         Method = "GET"
                     })
 
+                    --// Structural: bridge doesn't support HTTP polling at all \\--
+                    if response.StatusCode == 404 then
+                        warn("[Aurora] HTTP /poll returned 404 — bridge is WebSocket-only. Stopping reconnect storm. Use a WebSocket-capable executor, or set getgenv().DisableWebSocket=false before loading.")
+                        getgenv().__AURORA_HTTP_UNSUPPORTED = true
+                        self.Connected = false
+                        return
+                    end
+
                     --// Server might be down \\--
                     if response.StatusCode ~= 204 and response.StatusCode ~= 200 then
                         consecutiveFailures += 1
@@ -1692,6 +1700,11 @@ end
 task.spawn(function()
 local reconnectCount = 0
 while true do
+    -- Structural exit: bridge doesn't support HTTP polling on this server
+    if getgenv().__AURORA_HTTP_UNSUPPORTED then
+        warn("[Aurora] HTTP polling unsupported by bridge. Exiting reconnect loop. Reload with a WebSocket-capable executor to use MCP.")
+        break
+    end
     reconnectCount += 1
     if reconnectCount > 1 then
         print("[Aurora] Reconnecting... (attempt " .. tostring(reconnectCount) .. ")")
