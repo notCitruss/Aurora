@@ -102,10 +102,17 @@ local Players = cloneref(game:GetService("Players"))
 local ReplicatedStorage = cloneref(game:GetService("ReplicatedStorage"))
 
 --// Compatibility Check \\--
+-- Diagnostic: print what WS-related globals the executor exposes
+print("[Aurora] WS diag — WebSocket:", typeof(WebSocket),
+      "WebSocket.connect:", typeof(WebSocket) == "table" and typeof(WebSocket.connect) or "n/a",
+      "syn.websocket:", typeof(syn) == "table" and typeof(syn.websocket) or "n/a",
+      "http.websocket:", typeof(http) == "table" and typeof(http.websocket) or "n/a")
+
 local WebSocketAvailable = (
     typeof(WebSocket) ~= "nil" and
     typeof(WebSocket.connect) == "function"
 ) and (getgenv().DisableWebSocket ~= true)
+print("[Aurora] WebSocketAvailable:", WebSocketAvailable)
 
 --// Registration Info \\--
 local function GetRegistrationInfo()
@@ -243,7 +250,7 @@ local WebSocketBridge = setmetatable({}, {__index = BaseBridge}); do
         end)
         
         local connectionStart = os.clock()
-        repeat task.wait(0.05) until wsConnection ~= nil or os.clock() - connectionStart > 1.5
+        repeat task.wait(0.05) until wsConnection ~= nil or os.clock() - connectionStart > 3
 
         if wsConnection == nil then
             task.cancel(connectionThread)
