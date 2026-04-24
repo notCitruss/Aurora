@@ -545,8 +545,11 @@ local function StartScriptMapping()
     end)
 end
 
---// Start mapping immediately unless disabled \\--
-if not getgenv().DisableInitialScriptDecompMapping then
+--// Initial script decomp mapping is OFF by default (caused ~40s load freeze
+-- because it HTTP-POSTs every game script to decompile service).
+-- Set getgenv().EnableInitialScriptDecompMapping = true before loading if you
+-- want the pre-decompile scan. MCP search-scripts/decompile still work on-demand.
+if getgenv().EnableInitialScriptDecompMapping then
     StartScriptMapping()
 end
 
