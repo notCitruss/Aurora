@@ -426,12 +426,20 @@ local function CreateBridge()
         local success, bridge = pcall(function()
             return WebSocketBridge.new()
         end)
-        
+
         if success then
             return bridge
         else
-            warn("WebSocket bridge failed to initialize, falling back to HTTP polling: " .. tostring(bridge))
+            warn("[Aurora] WebSocket bridge failed: " .. tostring(bridge))
         end
+    else
+        warn("[Aurora] WebSocket not available on this executor (WebSocket.connect missing).")
+    end
+
+    -- HTTP fallback is OFF by default because on WS-only bridges it storms.
+    -- Set getgenv().AllowHttpFallback = true before loading if your bridge supports /poll.
+    if not getgenv().AllowHttpFallback then
+        error("[Aurora] WS unavailable + HTTP fallback disabled. Check executor WebSocket support, or set getgenv().AllowHttpFallback=true if your bridge supports HTTP polling.")
     end
 
     return HTTPBridge.new()
@@ -1701,11 +1709,16 @@ end
 
 --// Main Loop (wrapped in task.spawn so connector load doesn't block the caller) \\--
 task.spawn(function()
+local MAX_RECONNECT_ATTEMPTS = tonumber(getgenv().AuroraMaxReconnects) or 5
 local reconnectCount = 0
 while true do
     reconnectCount += 1
+    if reconnectCount > MAX_RECONNECT_ATTEMPTS then
+        warn("[Aurora] Hit " .. MAX_RECONNECT_ATTEMPTS .. " reconnect attempts. Giving up to prevent game freeze. Fix executor WebSocket and reload.")
+        break
+    end
     if reconnectCount > 1 then
-        print("[Aurora] Reconnecting... (attempt " .. tostring(reconnectCount) .. ")")
+        print("[Aurora] Reconnecting... (attempt " .. tostring(reconnectCount) .. "/" .. MAX_RECONNECT_ATTEMPTS .. ")")
     end
 
     local success, Bridge = pcall(CreateBridge)
