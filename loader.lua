@@ -1,1340 +1,458 @@
---// Aurora V3 Universal Loader — Splash + Key System + Script Loading
---// Made by notCitruss | 2026
---// Usage: loadstring(game:HttpGet("https://keys.dallaswebstudio.net/loader.lua"))()
+-- Aurora | Protected v4
+-- Unauthorized redistribution prohibited
 
-local Players = game:GetService("Players")
-local TweenService = game:GetService("TweenService")
-local MarketplaceService = game:GetService("MarketplaceService")
-local UserInputService = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
-local HttpService = game:GetService("HttpService")
+local x4o9pY5YSG5_vd = (function()
+  local _g = getfenv or function() return _G end
+  local _e = _g()
+  if not _e.game then return false end
+  if not _e.loadstring then return false end
+  return true
+end)()
+if not x4o9pY5YSG5_vd then return end
 
-local Player = Players.LocalPlayer
+local w1rNC9ix = 749959
 
----------- CONSTANTS ----------
-local BASE_URL = "https://keys.dallaswebstudio.net/script/"
-local KEY_API = "https://keys.dallaswebstudio.net"
-local KEY_LINK = "https://aurorahub.net/generate"
-local KEY_LINK_2 = "https://aurorahub.net/generate"
-local KEY_LINK_3 = "https://aurorahub.net/generate"
-local KEY_FILE = "aurora_key.txt"
+local function Rdn4N33uOzJiZm(_a,_b) return bit32.bxor(bit32.lshift(_a,3),_b) end
 
----------- GAME REGISTRY ----------
-local GAMES_BY_ID = {
-    [96840410521899]  = "timber_autofarm",
-    [75251063577391]  = "brainrot_heroes_autofarm",
-    [135668295983945] = "skill_point_legends",
-    [125007306703268] = "skill_point_incremental",
-    [125007306703270] = "skill_point_incremental",
-    [122079988266644] = "idle_potato_game",
-    [131756752872026] = "dive_down",
-    [70845479499574]  = "bite_by_night",
-    [132391015411211] = "split_or_steal",
-    [77747658251236]  = "sailor_piece",
-    [81535567274521]  = "bee_garden",
-    [119048529960596] = "restaurant_tycoon_3",
-    [89469502395769]  = "kick_a_lucky_block",
-}
+local pAV0luxH8x7TfE = {bit32.bxor(241,246),bit32.bxor(218,34),(326-99),(90+-58),bit32.bxor(103,10),(182+-138),(61+78),(152+-151)}
+for _i=1,#pAV0luxH8x7TfE do pAV0luxH8x7TfE[_i]=math.floor(pAV0luxH8x7TfE[_i]) end
+local grtVjHyx9oUqLI = {(113-65),bit32.bxor(151,88),(105-66),(71-64),(144+97),(51+63)}
+for _i=1,#grtVjHyx9oUqLI do grtVjHyx9oUqLI[_i]=math.floor(grtVjHyx9oUqLI[_i]) end
+local GwHo3cKopCK3jF = 4
 
-local GAMES_BY_NAME = {
-    ["timber!"]               = "timber_autofarm",
-    ["+1 skill point legends"] = "skill_point_legends",
-    ["brainrot heroes"]       = "brainrot_heroes_autofarm",
-    ["skill point legends"]   = "skill_point_legends",
-    ["skill point rpg"]       = "skill_point_incremental",
-    ["skill point incremental"] = "skill_point_incremental",
-    ["idle potato"]           = "idle_potato_game",
-    ["idle potato game"]      = "idle_potato_game",
-    ["dive down"]             = "dive_down",
-    ["bite by night"]         = "bite_by_night",
-    ["split or steal"]        = "split_or_steal",
-    ["sailor piece"]          = "sailor_piece",
-    ["bee garden"]            = "bee_garden",
-    ["[fusing]"]              = "bee_garden",
-    ["restaurant tycoon 3"]   = "restaurant_tycoon_3",
-    ["restaurant tycoon"]     = "restaurant_tycoon_3",
-    ["kick a lucky block"]    = "kick_a_lucky_block",
-}
+local E2rSnPMAEhdetX = {}; for _=1,math.random(3,7) do E2rSnPMAEhdetX[#(E2rSnPMAEhdetX)+1]=string.char(math.random(65,90)) end
 
----------- HWID ----------
-local HWID = "nohwid"
-pcall(function() if gethwid then HWID = gethwid() end end)
-pcall(function() if HWID == "nohwid" and getexecutorhwid then HWID = getexecutorhwid() end end)
-pcall(function() if HWID == "nohwid" and identifyexecutor then HWID = tostring(identifyexecutor()) .. "_" .. tostring(Player.UserId) end end)
+if w1rNC9ix ~= 749959 then return end
 
----------- DETECT GAME ----------
-local placeId = game.PlaceId
-local placeName = "Unknown"
-pcall(function() placeName = MarketplaceService:GetProductInfo(placeId).Name or "Unknown" end)
-local placeNameLower = placeName:lower()
+local function vxmxoanvWRp8Tx(_a,_b) return bit32.bxor(bit32.lshift(_a,3),_b) end
 
-local scriptName = GAMES_BY_ID[placeId]
-if not scriptName then
-    for pattern, name in pairs(GAMES_BY_NAME) do
-        if placeNameLower:find(pattern) then scriptName = name; break end
-    end
-end
+local tv82FB8q7E_Hps = table.concat({
+"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",
+})
 
----------- KEY FUNCTIONS ----------
-local function readKey()
-    local ok, key = pcall(function()
-        if isfile and isfile(KEY_FILE) then return readfile(KEY_FILE) end
-        return nil
-    end)
-    return ok and key or nil
-end
+local function WhxJrQR1SAbNYA(_a,_b) return bit32.bxor(bit32.lshift(_a,3),_b) end
 
-local function saveKey(key)
+local oSdRN9Iz_I6qM_ = (function()
+  local _a = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+  return function(_s)
+    _s = _s:gsub("[^".._a.."=]","")
+    return (_s:gsub(".",function(_x)
+      if _x=="=" then return "" end
+      local _r,_f = "",(select(2,_a:find(_x))-1)
+      for _i=6,1,-1 do _r=_r..(_f%2^_i-_f%2^(_i-1)>0 and "1" or "0") end
+      return _r
+    end):gsub("%d%d%d?%d?%d?%d?%d?%d?",function(_x)
+      if #_x~=8 then return "" end
+      return string.char(tonumber(_x,2))
+    end))
+  end
+end)()
+
+local goWZdJihkKvbDI = {}; for _=1,math.random(3,7) do goWZdJihkKvbDI[#(goWZdJihkKvbDI)+1]=string.char(math.random(65,90)) end
+
+local i_8owNAe7J7m8u = (function()
+  local hzMLOtZZaY6Rds = oSdRN9Iz_I6qM_(tv82FB8q7E_Hps)
+
+  -- Reverse
+  local _len = #hzMLOtZZaY6Rds
+  local _rev = table.create(_len, 0)
+  for _i = 1, _len do
+    _rev[_i] = string.byte(hzMLOtZZaY6Rds, _len - _i + 1)
+  end
+
+  -- Unrotate bits
+  local _ur = GwHo3cKopCK3jF
+  for _i = 1, _len do
+    local _b = _rev[_i]
+    _rev[_i] = bit32.bor(bit32.rshift(_b, _ur), bit32.band(bit32.lshift(_b, 8 - _ur), 255))
+  end
+
+  -- XOR layer B
+  local _kbl = #grtVjHyx9oUqLI
+  for _i = 1, _len do
+    _rev[_i] = bit32.bxor(_rev[_i], grtVjHyx9oUqLI[((_i-1) % _kbl) + 1])
+  end
+
+  -- XOR layer A
+  local _kal = #pAV0luxH8x7TfE
+  for _i = 1, _len do
+    _rev[_i] = string.char(bit32.bxor(_rev[_i], pAV0luxH8x7TfE[((_i-1) % _kal) + 1]))
+  end
+
+  return table.concat(_rev)
+end)()
+
+local function mrhnbxvxCO65WO() return tostring(math.random()):reverse() end
+
+local AlPua1mLyLRUEa = {}; for _=1,math.random(3,7) do AlPua1mLyLRUEa[#(AlPua1mLyLRUEa)+1]=string.char(math.random(65,90)) end
+
+local YLKsarD__1ky5t, _e = loadstring(i_8owNAe7J7m8u)
+if YLKsarD__1ky5t then
+  local _ok, _re = pcall(YLKsarD__1ky5t)
+  if not _ok then
+    warn('[Aurora] Runtime error: ' .. tostring(_re))
     pcall(function()
-        if writefile then writefile(KEY_FILE, key) end
+      local _eg = Instance.new('ScreenGui')
+      _eg.Name = 'AuroraErr'
+      _eg.Parent = game.Players.LocalPlayer:WaitForChild('PlayerGui')
+      local _el = Instance.new('TextLabel')
+      _el.Parent = _eg
+      _el.Size = UDim2.new(0.9, 0, 0, 80)
+      _el.Position = UDim2.new(0.05, 0, 0.4, 0)
+      _el.BackgroundColor3 = Color3.fromRGB(30, 0, 0)
+      _el.TextColor3 = Color3.fromRGB(255, 80, 80)
+      _el.TextSize = 12
+      _el.Font = Enum.Font.Code
+      _el.TextWrapped = true
+      _el.Text = 'Aurora Error: ' .. tostring(_re):sub(1, 300)
+      _el.BorderSizePixel = 0
     end)
-end
-
-local function validateKey(key)
-    if not key or #key < 10 then return false, "free" end
-    local ok, result = pcall(function()
-        local uid = tostring(Player.UserId)
-        local resp = game:HttpGet(KEY_API .. "/validate?key=" .. key .. "&uid=" .. uid .. "&lock=" .. HWID, true)
-        local data = HttpService:JSONDecode(resp)
-        if data and data.valid == true then
-            return { valid = true, tier = data.tier or "premium" }
-        end
-        return { valid = false, tier = "free" }
-    end)
-    if ok and result and result.valid then
-        return true, result.tier
-    end
-    return false, "free"
-end
-
----------- CLEANUP OLD GUIs ----------
-for _, n in {"Aurora", "AuroraLoader", "AuroraKey", "AuroraV3", "AuroraV3Loader"} do
-    pcall(function() Player.PlayerGui:FindFirstChild(n):Destroy() end)
-    pcall(function() if gethui then gethui():FindFirstChild(n):Destroy() end end)
-    pcall(function() game:GetService("CoreGui"):FindFirstChild(n):Destroy() end)
-end
-
----------- STATE ----------
-local savedKey = nil
-
---// (Phase 1 splash removed — goes straight to key check)
-
---// ============================================================
---// PHASE 2: KEY CHECK (saved key)
---// ============================================================
-
-savedKey = readKey()
-local keyValid = false
-if savedKey then
-    local valid, tier = validateKey(savedKey)
-    keyValid = valid
-    if valid then
-        getgenv().AuroraTier = tier
-        getgenv().AuroraKeyTier = tier
-    end
-end
-
---// ============================================================
---// PHASE 3: KEY SYSTEM UI (if key not valid)
---// ============================================================
-
-if not keyValid then
-    savedKey = nil
-
-    -- Color palette
-    local C = {
-        bg = Color3.fromRGB(35, 35, 55),
-        panel = Color3.fromRGB(25, 25, 40),
-        card = Color3.fromRGB(22, 22, 35),
-        accent = Color3.fromRGB(252, 110, 142),
-        text = Color3.fromRGB(235, 235, 245),
-        dim = Color3.fromRGB(130, 130, 155),
-        muted = Color3.fromRGB(70, 70, 90),
-        green = Color3.fromRGB(80, 200, 120),
-        purple = Color3.fromRGB(140, 80, 200),
-        inputBg = Color3.fromRGB(12, 12, 20),
-    }
-
-    -- Helpers
-    local function create(class, props, parent)
-        local inst = Instance.new(class)
-        for k, v in pairs(props) do
-            if k ~= "Children" then
-                inst[k] = v
-            end
-        end
-        if parent then inst.Parent = parent end
-        return inst
-    end
-
-    local function corner(parent, radius)
-        return create("UICorner", { CornerRadius = UDim.new(0, radius) }, parent)
-    end
-
-    local function stroke(parent, color, thickness)
-        local s = create("UIStroke", {
-            Color = color,
-            Thickness = thickness or 1,
-            Transparency = 0.2,
-            ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-        }, parent)
-        return s
-    end
-
-    local function glass(parent)
-        parent.BackgroundTransparency = 0.10
-        parent.BackgroundColor3 = Color3.fromRGB(35, 35, 55)
-        local s = Instance.new("UIStroke", parent)
-        s.Color = Color3.fromRGB(252, 110, 142)
-        s.Thickness = 2
-        s.Transparency = 0.2
-        s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-        return parent
-    end
-
-    local function makeButton(frame)
-        frame.Active = true
-        return frame
-    end
-
-    local function connectClick(frame, callback)
-        frame.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1
-            or input.UserInputType == Enum.UserInputType.Touch then
-                callback()
-            end
-        end)
-    end
-
-    local function label(parent, props)
-        local defaults = {
-            BackgroundTransparency = 1,
-            Font = Enum.Font.GothamBold,
-            TextColor3 = C.text,
-            TextSize = 12,
-            TextXAlignment = Enum.TextXAlignment.Left,
-            TextYAlignment = Enum.TextYAlignment.Center,
-            BorderSizePixel = 0,
-            Active = false,
-        }
-        for k, v in pairs(defaults) do
-            if props[k] == nil then props[k] = v end
-        end
-        return create("TextLabel", props, parent)
-    end
-
-    -- ScreenGui
-    local gui = create("ScreenGui", {
-        Name = "Aurora",
-        ResetOnSpawn = false,
-        ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
-        DisplayOrder = 50,
-        IgnoreGuiInset = true,
-    })
-    local guiOk = pcall(function()
-        gui.Parent = (typeof(gethui) == "function" and gethui()) or game:GetService("CoreGui")
-    end)
-    if not guiOk then
-        gui.Parent = Player.PlayerGui
-    end
-
-    -- Shadow
-    local shadow = create("ImageLabel", {
-        Name = "Shadow",
-        Size = UDim2.new(0, 780 + 44, 0, 460 + 44),
-        Position = UDim2.new(0.5, -390 - 22, 0.5, -230 - 22),
-        BackgroundTransparency = 1,
-        Image = "rbxassetid://6014261993",
-        ImageColor3 = Color3.fromRGB(80, 40, 80),
-        ImageTransparency = 1,
-        ScaleType = Enum.ScaleType.Slice,
-        SliceCenter = Rect.new(49, 49, 450, 450),
-        ZIndex = 0,
-    }, gui)
-
-    -- Main Frame (invisible container)
-    local main = create("Frame", {
-        Name = "Main",
-        Size = UDim2.fromOffset(780, 460),
-        Position = UDim2.new(0.5, -390, 0.5, -230),
-        BackgroundColor3 = Color3.fromRGB(30, 30, 50),
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-        Active = true,
-        Draggable = true,
-        ClipsDescendants = true,
-    }, gui)
-    corner(main, 14)
-
-    -- Entrance animation
-    task.spawn(function()
-        local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-        TweenService:Create(shadow, tweenInfo, { ImageTransparency = 0.8 }):Play()
-    end)
-
-    -- Keep shadow synced to main position
-    local shadowConn = RunService.RenderStepped:Connect(function()
-        shadow.Position = main.Position + UDim2.fromOffset(-22, -22)
-    end)
-
-    --// ========== LEFT PANEL (180px) — User Info ==========
-    local leftPanel = create("Frame", {
-        Name = "LeftPanel",
-        Size = UDim2.new(0, 180, 1, -8),
-        Position = UDim2.fromOffset(4, 4),
-        BackgroundColor3 = C.panel,
-        BackgroundTransparency = 0.3,
-        BorderSizePixel = 0,
-    }, main)
-    corner(leftPanel, 12)
-    glass(leftPanel)
-
-    create("UIPadding", {
-        PaddingTop = UDim.new(0, 10),
-        PaddingLeft = UDim.new(0, 10),
-        PaddingRight = UDim.new(0, 10),
-        PaddingBottom = UDim.new(0, 10),
-    }, leftPanel)
-
-    create("UIListLayout", {
-        SortOrder = Enum.SortOrder.LayoutOrder,
-        Padding = UDim.new(0, 6),
-        HorizontalAlignment = Enum.HorizontalAlignment.Center,
-    }, leftPanel)
-
-    -- Header
-    label(leftPanel, {
-        Name = "Header",
-        Size = UDim2.new(1, 0, 0, 14),
-        Text = "\xF0\x9F\x91\xA4 User Info",
-        TextColor3 = C.accent,
-        TextSize = 11,
-        Font = Enum.Font.GothamBold,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        LayoutOrder = 1,
-    })
-
-    -- Avatar
-    local avatarFrame = create("Frame", {
-        Name = "AvatarFrame",
-        Size = UDim2.fromOffset(60, 60),
-        BackgroundTransparency = 1,
-        LayoutOrder = 2,
-    }, leftPanel)
-
-    local avatarImg = create("ImageLabel", {
-        Name = "Avatar",
-        Size = UDim2.fromOffset(60, 60),
-        Position = UDim2.fromOffset(0, 0),
-        BackgroundColor3 = C.card,
-        BorderSizePixel = 0,
-        Image = "",
-    }, avatarFrame)
-    corner(avatarImg, 30)
-    stroke(avatarImg, C.accent, 2)
-
-    task.spawn(function()
-        local thumbOk, thumbContent = pcall(function()
-            return Players:GetUserThumbnailAsync(Player.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100)
-        end)
-        if thumbOk and thumbContent then
-            avatarImg.Image = thumbContent
-        else
-            avatarImg.Image = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. Player.UserId .. "&width=100&height=100&format=png"
-        end
-    end)
-
-    -- Username
-    label(leftPanel, {
-        Name = "Username",
-        Size = UDim2.new(1, 0, 0, 16),
-        Text = Player.Name,
-        TextSize = 13,
-        Font = Enum.Font.GothamBold,
-        TextXAlignment = Enum.TextXAlignment.Center,
-        LayoutOrder = 3,
-    })
-
-    -- Info Rows
-    local function infoRow(parent, icon, lbl, val, order)
-        local row = create("Frame", {
-            Name = "Row_" .. lbl,
-            Size = UDim2.new(1, -8, 0, 34),
-            BackgroundColor3 = Color3.fromRGB(18, 18, 28),
-            BackgroundTransparency = 0.3,
-            BorderSizePixel = 0,
-            LayoutOrder = order,
-        }, parent)
-        corner(row, 6)
-        stroke(row, C.accent, 1)
-        create("UIPadding", {
-            PaddingLeft = UDim.new(0, 6),
-            PaddingTop = UDim.new(0, 4),
-        }, row)
-        label(row, {
-            Size = UDim2.new(1, 0, 0, 11),
-            Position = UDim2.fromOffset(0, 0),
-            Text = icon .. " " .. lbl,
-            TextSize = 9,
-            TextColor3 = C.dim,
-            Font = Enum.Font.Gotham,
-            TextXAlignment = Enum.TextXAlignment.Left,
-        })
-        local valLabel = label(row, {
-            Name = "Value",
-            Size = UDim2.new(1, 0, 0, 12),
-            Position = UDim2.fromOffset(0, 10),
-            Text = val,
-            TextSize = 10,
-            TextColor3 = C.text,
-            Font = Enum.Font.GothamSemibold,
-            TextXAlignment = Enum.TextXAlignment.Left,
-        })
-        return valLabel
-    end
-
-    -- Executor
-    local execName = "Unknown"
-    pcall(function() execName = identifyexecutor() or "Unknown" end)
-    infoRow(leftPanel, "\xF0\x9F\x96\xA5\xEF\xB8\x8F", "Executor", tostring(execName), 4)
-
-    -- Device
-    local deviceStr = "PC"
-    pcall(function()
-        if UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled then
-            deviceStr = "Mobile"
-        end
-    end)
-    infoRow(leftPanel, "\xF0\x9F\x92\xBB", "Device", deviceStr, 5)
-
-    -- HWID
-    local hwidStr = "N/A"
-    pcall(function()
-        local hw = HWID
-        if hw and hw ~= "nohwid" and #hw > 8 then
-            hwidStr = hw:sub(1, 8) .. "..."
-        elseif hw and hw ~= "nohwid" then
-            hwidStr = hw
-        end
-    end)
-    infoRow(leftPanel, "\xF0\x9F\x94\x91", "HWID", hwidStr, 6)
-
-    -- Game Name
-    local gameDisplay = placeName
-    pcall(function()
-        if #gameDisplay > 25 then
-            gameDisplay = gameDisplay:sub(1, 25) .. "..."
-        end
-    end)
-    infoRow(leftPanel, "\xF0\x9F\x8E\xAE", "Game", gameDisplay, 7)
-
-    -- Session Timer
-    local sessionLabel = label(leftPanel, {
-        Name = "Session",
-        Size = UDim2.new(1, 0, 0, 18),
-        Text = "00:00",
-        TextSize = 14,
-        TextColor3 = C.accent,
-        Font = Enum.Font.GothamBold,
-        TextXAlignment = Enum.TextXAlignment.Center,
-        LayoutOrder = 8,
-    })
-
-    -- Ping
-    local pingLabel = label(leftPanel, {
-        Name = "Ping",
-        Size = UDim2.new(1, 0, 0, 14),
-        Text = "0 ms",
-        TextSize = 11,
-        TextColor3 = C.green,
-        Font = Enum.Font.GothamBold,
-        TextXAlignment = Enum.TextXAlignment.Center,
-        LayoutOrder = 9,
-    })
-
-    -- Clock
-    local clockLabel = label(leftPanel, {
-        Name = "Clock",
-        Size = UDim2.new(1, 0, 0, 12),
-        Text = "12:00:00 AM",
-        TextSize = 10,
-        TextColor3 = C.dim,
-        Font = Enum.Font.Gotham,
-        TextXAlignment = Enum.TextXAlignment.Center,
-        LayoutOrder = 10,
-    })
-
-    -- Connection Status Bar (anchored to bottom, outside layout)
-    local connBar = create("Frame", {
-        Name = "ConnBar",
-        Size = UDim2.new(1, -16, 0, 22),
-        Position = UDim2.new(0, 8, 1, -30),
-        BackgroundColor3 = C.green,
-        BorderSizePixel = 0,
-    }, leftPanel)
-    corner(connBar, 6)
-
-    label(connBar, {
-        Size = UDim2.new(1, -12, 1, 0),
-        Position = UDim2.fromOffset(6, 0),
-        Text = "Connected to Aurora",
-        TextSize = 9,
-        TextColor3 = C.text,
-        Font = Enum.Font.GothamSemibold,
-        TextXAlignment = Enum.TextXAlignment.Center,
-    })
-
-    -- Live updates (session, ping, clock)
-    local sessionStart = os.clock()
-
-    task.spawn(function()
-        while gui.Parent do
-            local elapsed = math.floor(os.clock() - sessionStart)
-            local mins = math.floor(elapsed / 60)
-            local secs = elapsed % 60
-            pcall(function() sessionLabel.Text = string.format("%02d:%02d", mins, secs) end)
-
-            local ping = 0
-            pcall(function() ping = math.floor(Player:GetNetworkPing() * 1000) end)
-            pcall(function()
-                pingLabel.Text = tostring(ping) .. " ms"
-                if ping < 100 then
-                    pingLabel.TextColor3 = C.green
-                elseif ping < 200 then
-                    pingLabel.TextColor3 = Color3.fromRGB(255, 200, 80)
-                else
-                    pingLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
-                end
-            end)
-
-            pcall(function() clockLabel.Text = os.date("%I:%M:%S %p") end)
-
-            task.wait(1)
-        end
-    end)
-
-    --// ========== CENTER PANEL (398px) — Key Entry ==========
-    local centerPanel = create("Frame", {
-        Name = "CenterPanel",
-        Size = UDim2.new(0, 398, 1, -8),
-        Position = UDim2.fromOffset(190, 4),
-        BackgroundColor3 = C.panel,
-        BackgroundTransparency = 0.3,
-        BorderSizePixel = 0,
-        ClipsDescendants = true,
-    }, main)
-    corner(centerPanel, 12)
-    glass(centerPanel)
-
-    create("UIPadding", {
-        PaddingTop = UDim.new(0, 14),
-        PaddingLeft = UDim.new(0, 16),
-        PaddingRight = UDim.new(0, 16),
-        PaddingBottom = UDim.new(0, 10),
-    }, centerPanel)
-
-    create("UIListLayout", {
-        SortOrder = Enum.SortOrder.LayoutOrder,
-        Padding = UDim.new(0, 8),
-        HorizontalAlignment = Enum.HorizontalAlignment.Center,
-    }, centerPanel)
-
-    -- Logo Area
-    local logoFrame = create("Frame", {
-        Name = "LogoArea",
-        Size = UDim2.new(1, 0, 0, 70),
-        BackgroundTransparency = 1,
-        LayoutOrder = 1,
-    }, centerPanel)
-
-    local logoImg = create("ImageLabel", {
-        Name = "Logo",
-        Size = UDim2.fromOffset(38, 38),
-        Position = UDim2.new(0.5, -19, 0, 0),
-        BackgroundTransparency = 1,
-        Image = "rbxassetid://77299357494181",
-        ScaleType = Enum.ScaleType.Fit,
-    }, logoFrame)
-
-    local titleRow = create("Frame", {
-        Size = UDim2.new(1, 0, 0, 24),
-        Position = UDim2.fromOffset(0, 36),
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-    }, logoFrame)
-
-    label(titleRow, {
-        Size = UDim2.new(1, 0, 1, 0),
-        Text = "Aurora",
-        TextSize = 22,
-        Font = Enum.Font.GothamBold,
-        TextXAlignment = Enum.TextXAlignment.Center,
-    })
-
-    label(logoFrame, {
-        Size = UDim2.new(1, 0, 0, 12),
-        Position = UDim2.fromOffset(0, 58),
-        Text = "\xF0\x9F\x94\x92 Secured by notCitruss",
-        TextSize = 9,
-        TextColor3 = C.dim,
-        Font = Enum.Font.Gotham,
-        TextXAlignment = Enum.TextXAlignment.Center,
-    })
-
-    -- Discord CTA Pill
-    local discordPill = create("Frame", {
-        Name = "DiscordCTA",
-        Size = UDim2.new(1, 0, 0, 30),
-        BackgroundColor3 = C.card,
-        BorderSizePixel = 0,
-        LayoutOrder = 2,
-    }, centerPanel)
-    corner(discordPill, 15)
-    stroke(discordPill, C.accent)
-    makeButton(discordPill)
-
-    label(discordPill, {
-        Size = UDim2.new(1, 0, 1, 0),
-        Text = "\xF0\x9F\x8E\xAE Join our Discord for free keys!",
-        TextSize = 10,
-        TextColor3 = C.dim,
-        Font = Enum.Font.GothamSemibold,
-        TextXAlignment = Enum.TextXAlignment.Center,
-    })
-
-    connectClick(discordPill, function()
-        pcall(function()
-            if setclipboard then setclipboard("https://discord.gg/Ny22WZjg7c") end
-        end)
-    end)
-
-    -- Key Input Area (uses UIListLayout for clean stacking)
-    local keySection = create("Frame", {
-        Name = "KeySection",
-        Size = UDim2.new(1, 0, 0, 164),
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-        LayoutOrder = 3,
-    }, centerPanel)
-
-    create("UIListLayout", {
-        SortOrder = Enum.SortOrder.LayoutOrder,
-        Padding = UDim.new(0, 6),
-    }, keySection)
-
-    -- Row 1: Key Input
-    local keyInput = create("TextBox", {
-        Name = "KeyInput",
-        Size = UDim2.new(1, 0, 0, 36),
-        BackgroundColor3 = C.inputBg,
-        BorderSizePixel = 0,
-        Text = "",
-        PlaceholderText = "Enter your key...",
-        PlaceholderColor3 = C.muted,
-        TextColor3 = C.text,
-        TextSize = 13,
-        Font = Enum.Font.GothamSemibold,
-        ClearTextOnFocus = false,
-        LayoutOrder = 1,
-    }, keySection)
-    corner(keyInput, 8)
-    stroke(keyInput, Color3.fromRGB(40, 40, 60))
-    create("UIPadding", { PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 12) }, keyInput)
-
-    -- Row 2: Redeem button (full width)
-    local redeemBtn = create("Frame", {
-        Name = "Redeem",
-        Size = UDim2.new(1, 0, 0, 36),
-        BackgroundColor3 = C.accent,
-        BorderSizePixel = 0,
-        LayoutOrder = 2,
-    }, keySection)
-    corner(redeemBtn, 8)
-    makeButton(redeemBtn)
-
-    local redeemLabel = label(redeemBtn, {
-        Size = UDim2.new(1, 0, 1, 0),
-        Text = "\xE2\x9C\x93 Redeem Key",
-        TextSize = 13,
-        TextColor3 = C.text,
-        Font = Enum.Font.GothamBold,
-        TextXAlignment = Enum.TextXAlignment.Center,
-    })
-
-    connectClick(redeemBtn, function()
-        local key = keyInput.Text:gsub("%s+", "")
-        if #key < 10 then
-            redeemLabel.Text = "No key entered!"
-            redeemLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
-            task.delay(1.5, function()
-                pcall(function()
-                    redeemLabel.Text = "\xE2\x9C\x93 Redeem Key"
-                    redeemLabel.TextColor3 = C.text
-                end)
-            end)
-            return
-        end
-        redeemLabel.Text = "Checking..."
-        redeemLabel.TextColor3 = C.dim
-        task.spawn(function()
-            local ok, resp = pcall(function()
-                local uid = tostring(Player.UserId)
-                local raw = game:HttpGet(KEY_API .. "/validate?key=" .. key .. "&uid=" .. uid .. "&lock=" .. HWID, true)
-                return HttpService:JSONDecode(raw)
-            end)
-            if ok and resp and resp.valid then
-                local tier = resp.tier or "premium"
-                getgenv().AuroraTier = tier
-                getgenv().AuroraKeyTier = tier
-                redeemLabel.Text = tier == "private" and "Private Key Valid!" or "Key Valid!"
-                redeemLabel.TextColor3 = C.green
-                saveKey(key)
-                task.wait(1)
-                savedKey = key
-                pcall(function() shadowConn:Disconnect() end)
-                gui:Destroy()
-            else
-                local errMsg = (ok and resp and resp.error) or "Invalid or expired key"
-                redeemLabel.Text = errMsg
-                redeemLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
-                task.delay(2, function()
-                    pcall(function()
-                        redeemLabel.Text = "\xE2\x9C\x93 Redeem Key"
-                        redeemLabel.TextColor3 = C.text
-                    end)
-                end)
-            end
-        end)
-    end)
-
-    -- Divider label
-    label(keySection, {
-        Size = UDim2.new(1, 0, 0, 14),
-        Text = "Get a free key:",
-        TextSize = 10,
-        TextColor3 = C.dim,
-        Font = Enum.Font.Gotham,
-        TextXAlignment = Enum.TextXAlignment.Center,
-        LayoutOrder = 3,
-    })
-
-    -- Row 3: Ad link buttons (Work.ink + Linkvertise + LootLabs)
-    local adRow = create("Frame", {
-        Name = "AdRow",
-        Size = UDim2.new(1, 0, 0, 34),
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-        LayoutOrder = 4,
-    }, keySection)
-
-    -- Work.ink (left third, accent bg)
-    local getKeyBtn = create("Frame", {
-        Name = "GetKey",
-        Size = UDim2.new(0.333, -4, 1, 0),
-        Position = UDim2.fromOffset(0, 0),
-        BackgroundColor3 = Color3.fromRGB(40, 40, 65),
-        BorderSizePixel = 0,
-    }, adRow)
-    corner(getKeyBtn, 8)
-    stroke(getKeyBtn, C.accent)
-    makeButton(getKeyBtn)
-
-    local getKeyLabel = label(getKeyBtn, {
-        Size = UDim2.new(1, 0, 1, 0),
-        Text = "Work.ink",
-        TextSize = 11,
-        TextColor3 = C.accent,
-        Font = Enum.Font.GothamBold,
-        TextXAlignment = Enum.TextXAlignment.Center,
-    })
-
-    connectClick(getKeyBtn, function()
-        pcall(function() if setclipboard then setclipboard(KEY_LINK) end end)
-        getKeyLabel.Text = "Copied!"
-        getKeyLabel.TextColor3 = C.green
-        task.delay(1.5, function() pcall(function() getKeyLabel.Text = "Work.ink"; getKeyLabel.TextColor3 = C.accent end) end)
-    end)
-
-    -- Linkvertise (center third, blue)
-    local lvBtn = create("Frame", {
-        Name = "LinkvertiseKey",
-        Size = UDim2.new(0.333, -4, 1, 0),
-        Position = UDim2.new(0.333, 2, 0, 0),
-        BackgroundColor3 = Color3.fromRGB(40, 40, 65),
-        BorderSizePixel = 0,
-    }, adRow)
-    corner(lvBtn, 8)
-    stroke(lvBtn, Color3.fromRGB(100, 180, 255))
-    makeButton(lvBtn)
-
-    local lvLabel = label(lvBtn, {
-        Size = UDim2.new(1, 0, 1, 0),
-        Text = "Linkvertise",
-        TextSize = 11,
-        TextColor3 = Color3.fromRGB(100, 180, 255),
-        Font = Enum.Font.GothamBold,
-        TextXAlignment = Enum.TextXAlignment.Center,
-    })
-
-    connectClick(lvBtn, function()
-        pcall(function() if setclipboard then setclipboard(KEY_LINK_2) end end)
-        lvLabel.Text = "Copied!"
-        lvLabel.TextColor3 = C.green
-        task.delay(1.5, function() pcall(function() lvLabel.Text = "Linkvertise"; lvLabel.TextColor3 = Color3.fromRGB(100, 180, 255) end) end)
-    end)
-
-    -- LootLabs (right third, green)
-    local llBtn = create("Frame", {
-        Name = "LootLabsKey",
-        Size = UDim2.new(0.333, -2, 1, 0),
-        Position = UDim2.new(0.666, 4, 0, 0),
-        BackgroundColor3 = Color3.fromRGB(40, 55, 40),
-        BorderSizePixel = 0,
-    }, adRow)
-    corner(llBtn, 8)
-    stroke(llBtn, Color3.fromRGB(80, 200, 120))
-    makeButton(llBtn)
-
-    local llLabel = label(llBtn, {
-        Size = UDim2.new(1, 0, 1, 0),
-        Text = "LootLabs",
-        TextSize = 11,
-        TextColor3 = Color3.fromRGB(80, 200, 120),
-        Font = Enum.Font.GothamBold,
-        TextXAlignment = Enum.TextXAlignment.Center,
-    })
-
-    connectClick(llBtn, function()
-        pcall(function() if setclipboard then setclipboard(KEY_LINK_3) end end)
-        llLabel.Text = "Copied!"
-        llLabel.TextColor3 = C.green
-        task.delay(1.5, function() pcall(function() llLabel.Text = "LootLabs"; llLabel.TextColor3 = Color3.fromRGB(80, 200, 120) end) end)
-    end)
-
-    -- Bottom Action Bar (Discord + Copy HWID)
-    local actionBar = create("Frame", {
-        Name = "ActionBar",
-        Size = UDim2.new(1, -24, 0, 36),
-        Position = UDim2.fromOffset(12, 0),
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-        LayoutOrder = 4,
-    }, centerPanel)
-
-    create("UIListLayout", {
-        FillDirection = Enum.FillDirection.Horizontal,
-        SortOrder = Enum.SortOrder.LayoutOrder,
-        Padding = UDim.new(0, 8),
-        HorizontalAlignment = Enum.HorizontalAlignment.Center,
-    }, actionBar)
-
-    local actionBtns = {
-        { "\xF0\x9F\x8E\xAE Discord", 1, function()
-            pcall(function()
-                if setclipboard then setclipboard("https://discord.gg/Ny22WZjg7c") end
-            end)
-        end },
-        { "\xF0\x9F\x93\x8B Copy HWID", 2, function()
-            pcall(function()
-                if setclipboard then
-                    local hw = HWID ~= "nohwid" and HWID or "N/A"
-                    setclipboard(hw)
-                end
-            end)
-        end },
-    }
-
-    for _, data in pairs(actionBtns) do
-        local btn = create("Frame", {
-            Size = UDim2.fromOffset(125, 36),
-            BackgroundColor3 = C.card,
-            BorderSizePixel = 0,
-            LayoutOrder = data[2],
-        }, actionBar)
-        corner(btn, 8)
-        stroke(btn, Color3.fromRGB(40, 40, 60))
-        makeButton(btn)
-        local btnLbl = label(btn, {
-            Size = UDim2.new(1, 0, 1, 0),
-            Text = data[1],
-            TextSize = 11,
-            TextColor3 = C.dim,
-            Font = Enum.Font.GothamSemibold,
-            TextXAlignment = Enum.TextXAlignment.Center,
-        })
-        connectClick(btn, function()
-            local orig = data[1]
-            btnLbl.TextColor3 = C.accent
-            btnLbl.Text = "Copied!"
-            data[3]()
-            task.delay(1.5, function()
-                pcall(function()
-                    btnLbl.TextColor3 = C.dim
-                    btnLbl.Text = orig
-                end)
-            end)
-        end)
-    end
-
-    -- Premium Bar
-    local premBar = create("Frame", {
-        Name = "PremiumBar",
-        Size = UDim2.new(1, 0, 0, 50),
-        BackgroundColor3 = C.purple,
-        BorderSizePixel = 0,
-        LayoutOrder = 5,
-    }, centerPanel)
-    corner(premBar, 10)
-    makeButton(premBar)
-
-    create("UIGradient", {
-        Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, C.purple),
-            ColorSequenceKeypoint.new(1, C.accent),
-        }),
-        Rotation = 0,
-    }, premBar)
-
-    label(premBar, {
-        Size = UDim2.new(0.6, 0, 0, 18),
-        Position = UDim2.fromOffset(12, 8),
-        Text = "\xF0\x9F\x91\x91 Get Premium Access",
-        TextSize = 14,
-        TextColor3 = C.text,
-        Font = Enum.Font.GothamBold,
-        TextXAlignment = Enum.TextXAlignment.Left,
-    })
-
-    label(premBar, {
-        Size = UDim2.new(0.6, 0, 0, 12),
-        Position = UDim2.fromOffset(12, 28),
-        Text = "Instant delivery \xC2\xB7 24/7 support",
-        TextSize = 10,
-        TextColor3 = Color3.fromRGB(220, 200, 230),
-        Font = Enum.Font.Gotham,
-        TextXAlignment = Enum.TextXAlignment.Left,
-    })
-
-    local buyBtn = create("Frame", {
-        Name = "BuyBtn",
-        Size = UDim2.fromOffset(64, 32),
-        Position = UDim2.new(1, -78, 0.5, -16),
-        BackgroundColor3 = C.accent,
-        BorderSizePixel = 0,
-    }, premBar)
-    corner(buyBtn, 6)
-    makeButton(buyBtn)
-
-    local buyLbl = label(buyBtn, {
-        Size = UDim2.new(1, 0, 1, 0),
-        Text = "Buy",
-        TextSize = 12,
-        TextColor3 = C.text,
-        Font = Enum.Font.GothamBold,
-        TextXAlignment = Enum.TextXAlignment.Center,
-    })
-
-    connectClick(buyBtn, function()
-        pcall(function()
-            if setclipboard then setclipboard("https://aurorahub.net/keys") end
-        end)
-        buyLbl.Text = "Copied!"
-        buyLbl.TextColor3 = C.green
-        task.delay(1.5, function()
-            pcall(function()
-                buyLbl.Text = "Buy"
-                buyLbl.TextColor3 = C.text
-            end)
-        end)
-    end)
-
-    --// ========== RIGHT PANEL (180px) — Changelog ==========
-    local rightPanel = create("Frame", {
-        Name = "RightPanel",
-        Size = UDim2.new(0, 180, 1, -8),
-        Position = UDim2.fromOffset(594, 4),
-        BackgroundColor3 = C.panel,
-        BackgroundTransparency = 0.3,
-        BorderSizePixel = 0,
-    }, main)
-    corner(rightPanel, 12)
-    glass(rightPanel)
-
-    local rightScroll = create("ScrollingFrame", {
-        Name = "Scroll",
-        Size = UDim2.new(1, -14, 1, 0),
-        Position = UDim2.fromOffset(14, 0),
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-        ScrollBarThickness = 3,
-        ScrollBarImageColor3 = C.accent,
-        AutomaticCanvasSize = Enum.AutomaticSize.Y,
-        CanvasSize = UDim2.fromOffset(0, 0),
-        ScrollingDirection = Enum.ScrollingDirection.Y,
-    }, rightPanel)
-
-    create("UIPadding", {
-        PaddingTop = UDim.new(0, 10),
-        PaddingLeft = UDim.new(0, 10),
-        PaddingRight = UDim.new(0, 10),
-        PaddingBottom = UDim.new(0, 10),
-    }, rightScroll)
-
-    create("UIListLayout", {
-        SortOrder = Enum.SortOrder.LayoutOrder,
-        Padding = UDim.new(0, 8),
-    }, rightScroll)
-
-    -- Changelog Header
-    label(rightScroll, {
-        Name = "Header",
-        Size = UDim2.new(1, 0, 0, 14),
-        Text = "\xF0\x9F\x93\x8B Changelog",
-        TextColor3 = C.accent,
-        TextSize = 11,
-        Font = Enum.Font.GothamBold,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        LayoutOrder = 1,
-    })
-
-    -- Changelog entries
-    local changelogData = {
-        {
-            badge = "NEW",
-            badgeColor = C.accent,
-            version = "3.0 \xC2\xB7 Apr 1, 2026",
-            items = {
-                "\xC2\xB7 HWID key locking",
-                "\xC2\xB7 11 games supported",
-                "\xC2\xB7 Premium UI redesign",
-            },
-            order = 2,
-        },
-        {
-            badge = "2.5",
-            badgeColor = C.card,
-            version = "2.5 \xC2\xB7 Mar 31, 2026",
-            items = {
-                "\xC2\xB7 Security hardening",
-                "\xC2\xB7 Scripts in Worker KV",
-                "\xC2\xB7 Mobile scroll support",
-            },
-            order = 3,
-        },
-        {
-            badge = "2.0",
-            badgeColor = C.card,
-            version = "2.0 \xC2\xB7 Mar 31, 2026",
-            items = {
-                "\xC2\xB7 Work.ink monetization",
-                "\xC2\xB7 Key system launched",
-                "\xC2\xB7 Discord notifications",
-            },
-            order = 4,
-        },
-        {
-            badge = "1.0",
-            badgeColor = C.card,
-            version = "1.0 \xC2\xB7 Mar 30, 2026",
-            items = {
-                "\xC2\xB7 Initial release",
-                "\xC2\xB7 9 game scripts",
-                "\xC2\xB7 Universal loader",
-            },
-            order = 5,
-        },
-    }
-
-    for _, entry in pairs(changelogData) do
-        local itemHeight = 14 + 13 + (#entry.items * 12) + 4
-        local entryFrame = create("Frame", {
-            Name = "Entry_" .. entry.badge,
-            Size = UDim2.new(1, 0, 0, itemHeight),
-            BackgroundColor3 = C.card,
-            BorderSizePixel = 0,
-            LayoutOrder = entry.order,
-        }, rightScroll)
-        corner(entryFrame, 6)
-        create("UIPadding", {
-            PaddingLeft = UDim.new(0, 6),
-            PaddingTop = UDim.new(0, 4),
-            PaddingRight = UDim.new(0, 4),
-        }, entryFrame)
-
-        -- Badge pill
-        local badgeWidth = math.max(#entry.badge * 6 + 8, 28)
-        local badgePill = create("Frame", {
-            Size = UDim2.fromOffset(badgeWidth, 14),
-            Position = UDim2.fromOffset(0, 0),
-            BackgroundColor3 = entry.badgeColor,
-            BorderSizePixel = 0,
-        }, entryFrame)
-        corner(badgePill, 4)
-        label(badgePill, {
-            Size = UDim2.new(1, 0, 1, 0),
-            Text = entry.badge,
-            TextSize = 8,
-            TextColor3 = C.text,
-            Font = Enum.Font.GothamBold,
-            TextXAlignment = Enum.TextXAlignment.Center,
-        })
-
-        -- Version text
-        label(entryFrame, {
-            Size = UDim2.new(1, 0, 0, 12),
-            Position = UDim2.fromOffset(0, 16),
-            Text = entry.version,
-            TextSize = 10,
-            TextColor3 = C.text,
-            Font = Enum.Font.GothamBold,
-            TextXAlignment = Enum.TextXAlignment.Left,
-        })
-
-        -- Bullet items
-        for i, item in pairs(entry.items) do
-            label(entryFrame, {
-                Size = UDim2.new(1, 0, 0, 10),
-                Position = UDim2.fromOffset(0, 28 + (i - 1) * 12),
-                Text = item,
-                TextSize = 9,
-                TextColor3 = C.dim,
-                Font = Enum.Font.Gotham,
-                TextXAlignment = Enum.TextXAlignment.Left,
-            })
-        end
-    end
-
-    --// ========== MINIMIZE / RESTORE FLOWER ==========
-    local miniBtn = create("Frame", {
-        Name = "MiniBtn",
-        Size = UDim2.fromOffset(44, 44),
-        Position = main.Position,
-        BackgroundColor3 = C.accent,
-        BackgroundTransparency = 0.3,
-        BorderSizePixel = 0,
-        Visible = false,
-        Active = true,
-    }, gui)
-    corner(miniBtn, 22)
-    stroke(miniBtn, C.accent, 2)
-
-    label(miniBtn, {
-        Size = UDim2.new(1, 0, 1, 0),
-        Text = "\xF0\x9F\x8C\xB8",
-        TextSize = 22,
-        TextXAlignment = Enum.TextXAlignment.Center,
-        TextYAlignment = Enum.TextYAlignment.Center,
-    })
-
-    -- Custom drag for flower + tap to restore
-    do
-        local dragging = false
-        local dragStart, startPos
-        local totalDrag = 0
-
-        miniBtn.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                dragging = true
-                totalDrag = 0
-                dragStart = input.Position
-                startPos = miniBtn.Position
-            end
-        end)
-
-        UserInputService.InputChanged:Connect(function(input)
-            if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-                local d = input.Position - dragStart
-                totalDrag = math.abs(d.X) + math.abs(d.Y)
-                miniBtn.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
-            end
-        end)
-
-        UserInputService.InputEnded:Connect(function(input)
-            if dragging and (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
-                dragging = false
-                if totalDrag < 8 then
-                    miniBtn.Visible = false
-                    main.Visible = true
-                    shadow.Visible = true
-                end
-            end
-        end)
-    end
-
-    -- Minimize button (top-right of main)
-    local minBtn = create("Frame", {
-        Name = "MinimizeBtn",
-        Size = UDim2.fromOffset(28, 28),
-        Position = UDim2.new(1, -64, 0, 6),
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-    }, main)
-    makeButton(minBtn)
-    label(minBtn, {
-        Size = UDim2.new(1, 0, 1, 0),
-        Text = "\xE2\x88\x92",
-        TextSize = 22,
-        TextColor3 = C.dim,
-        Font = Enum.Font.GothamBold,
-        TextXAlignment = Enum.TextXAlignment.Center,
-    })
-
-    connectClick(minBtn, function()
-        main.Visible = false
-        shadow.Visible = false
-        miniBtn.Position = main.Position + UDim2.fromOffset(320, 180)
-        miniBtn.Visible = true
-    end)
-
-    -- Close button (top-right of main)
-    local closeBtn = create("Frame", {
-        Name = "CloseBtn",
-        Size = UDim2.fromOffset(28, 28),
-        Position = UDim2.new(1, -32, 0, 6),
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-    }, main)
-    makeButton(closeBtn)
-    label(closeBtn, {
-        Size = UDim2.new(1, 0, 1, 0),
-        Text = "x",
-        TextSize = 18,
-        TextColor3 = C.dim,
-        Font = Enum.Font.GothamBold,
-        TextXAlignment = Enum.TextXAlignment.Center,
-    })
-
-    connectClick(closeBtn, function()
-        pcall(function() shadowConn:Disconnect() end)
-        miniBtn:Destroy()
-        gui:Destroy()
-    end)
-
-    -- Wait for valid key — redeem handler sets savedKey directly, poll is backup only
-    while not savedKey do
-        task.wait(5)
-        local polledKey = readKey()
-        if polledKey and not savedKey then
-            local valid, tier = validateKey(polledKey)
-            if valid then
-                savedKey = polledKey
-                getgenv().AuroraTier = tier
-                getgenv().AuroraKeyTier = tier
-            end
-        end
-    end
-
-    pcall(function() shadowConn:Disconnect() end)
-    pcall(function() miniBtn:Destroy() end)
-    pcall(function() gui:Destroy() end)
-end
-
---// ============================================================
---// PHASE 4: LOADING SPLASH + SCRIPT EXECUTION
---// ============================================================
-
-if scriptName and savedKey then
-    -- Mini splash while loading script
-    local loadGui = Instance.new("ScreenGui")
-    loadGui.Name = "AuroraLoading"
-    loadGui.DisplayOrder = 100
-    loadGui.IgnoreGuiInset = true
-    loadGui.ResetOnSpawn = false
-    pcall(function() loadGui.Parent = Player.PlayerGui end)
-    if not loadGui.Parent then pcall(function() loadGui.Parent = (gethui and gethui()) or game:GetService("CoreGui") end) end
-
-    local loadOverlay = Instance.new("Frame", loadGui)
-    loadOverlay.Size = UDim2.new(1, 0, 1, 0)
-    loadOverlay.BackgroundColor3 = Color3.fromRGB(8, 8, 14)
-    loadOverlay.BackgroundTransparency = 0.3
-    loadOverlay.BorderSizePixel = 0
-
-    local loadTitle = Instance.new("TextLabel", loadGui)
-    loadTitle.Size = UDim2.new(0.85, 0, 0, 110)
-    loadTitle.Position = UDim2.new(0.075, 0, 0.5, -55)
-    loadTitle.BackgroundTransparency = 1
-    loadTitle.Text = "AURORA"
-    loadTitle.TextColor3 = Color3.fromRGB(252, 110, 142)
-    loadTitle.TextTransparency = 0
-    loadTitle.TextSize = 180
-    loadTitle.Font = Enum.Font.GothamBlack
-    loadTitle.BorderSizePixel = 0
-
-    local loadStatus = Instance.new("TextLabel", loadGui)
-    loadStatus.Size = UDim2.new(0.4, 0, 0, 18)
-    loadStatus.Position = UDim2.new(0.3, 0, 0.5, 60)
-    loadStatus.BackgroundTransparency = 1
-    loadStatus.Text = "Loading " .. (scriptName:gsub("_", " ")) .. "..."
-    loadStatus.TextColor3 = Color3.fromRGB(200, 200, 215)
-    loadStatus.TextSize = 13
-    loadStatus.Font = Enum.Font.Gotham
-    loadStatus.BorderSizePixel = 0
-
-    task.wait(0.5)
-
-    -- Fetch script
-    local uid = tostring(Player.UserId)
-    -- Private tier tries private script first, falls back to public
-    local tier = getgenv().AuroraTier or "free"
-    local url
-    if tier == "private" then
-        url = BASE_URL .. "private/" .. scriptName .. "?key=" .. savedKey .. "&uid=" .. uid .. "&lock=" .. HWID
-    else
-        url = BASE_URL .. scriptName .. "?key=" .. savedKey .. "&uid=" .. uid .. "&lock=" .. HWID
-    end
-
-    loadStatus.Text = "Downloading..."
-    local success, result = pcall(function() return game:HttpGet(url) end)
-
-    -- If private script not found, fall back to public version
-    if tier == "private" and (not success or not result or result:find("script not found")) then
-        url = BASE_URL .. scriptName .. "?key=" .. savedKey .. "&uid=" .. uid .. "&lock=" .. HWID
-        success, result = pcall(function() return game:HttpGet(url) end)
-    end
-
-    if success and result and #result > 0 then
-        loadStatus.Text = "Executing..."
-        task.wait(0.3)
-
-        loadStatus.Text = "Ready"
-        loadStatus.TextColor3 = Color3.fromRGB(80, 200, 120)
-        task.wait(0.3)
-
-        -- Fade out
-        local fadeOut = TweenInfo.new(1, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
-        TweenService:Create(loadOverlay, fadeOut, {BackgroundTransparency = 1}):Play()
-        TweenService:Create(loadTitle, fadeOut, {TextTransparency = 1}):Play()
-        TweenService:Create(loadStatus, fadeOut, {TextTransparency = 1}):Play()
-        task.wait(1.1)
-        pcall(function() loadGui:Destroy() end)
-
-        -- Execute the script
-        local loadSuccess, loadErr = pcall(function() loadstring(result)() end)
-        if not loadSuccess then
-            warn("[Aurora] Script execution error: " .. tostring(loadErr))
-        end
-
-        -- Analytics heartbeat + error reporting
-        task.spawn(function()
-            pcall(function()
-                local heartbeatUrl = KEY_API .. "/api/heartbeat?game=" .. HttpService:UrlEncode(scriptName or "unknown") .. "&hwid=" .. HttpService:UrlEncode(HWID) .. "&version=1&executor=" .. HttpService:UrlEncode(tostring(identifyexecutor and identifyexecutor() or "unknown"))
-                if savedKey then heartbeatUrl = heartbeatUrl .. "&key=" .. HttpService:UrlEncode(savedKey) end
-                game:HttpGet(heartbeatUrl)
-            end)
-            if not loadSuccess and loadErr then
-                pcall(function()
-                    local errUrl = KEY_API .. "/api/heartbeat?game=" .. HttpService:UrlEncode(scriptName or "unknown") .. "&hwid=" .. HttpService:UrlEncode(HWID) .. "&version=ERROR&executor=" .. HttpService:UrlEncode(tostring(loadErr):sub(1, 100))
-                    game:HttpGet(errUrl)
-                end)
-            end
-        end)
-    else
-        loadStatus.Text = "Failed to download script"
-        loadStatus.TextColor3 = Color3.fromRGB(255, 80, 80)
-        task.wait(3)
-        pcall(function() loadGui:Destroy() end)
-        warn("[Aurora] Failed to download script for: " .. tostring(scriptName))
-    end
-elseif not scriptName then
-    warn("[Aurora] No script available for this game")
+  end
+else
+  warn('[Aurora] Compile error: ' .. tostring(_e))
+  pcall(function()
+    local _eg = Instance.new('ScreenGui')
+    _eg.Name = 'AuroraErr'
+    _eg.Parent = game.Players.LocalPlayer:WaitForChild('PlayerGui')
+    local _el = Instance.new('TextLabel')
+    _el.Parent = _eg
+    _el.Size = UDim2.new(0.9, 0, 0, 80)
+    _el.Position = UDim2.new(0.05, 0, 0.4, 0)
+    _el.BackgroundColor3 = Color3.fromRGB(30, 0, 0)
+    _el.TextColor3 = Color3.fromRGB(255, 80, 80)
+    _el.TextSize = 12
+    _el.Font = Enum.Font.Code
+    _el.TextWrapped = true
+    _el.Text = 'Aurora Compile Error: ' .. tostring(_e):sub(1, 300)
+    _el.BorderSizePixel = 0
+  end)
 end
