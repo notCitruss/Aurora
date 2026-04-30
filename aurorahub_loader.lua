@@ -31,6 +31,8 @@ local GAMES_BY_ID = {
     [81535567274521]  = "bee_garden",
     [70845479499574]  = "bite_by_night",
     [89469502395769]  = "kick_a_lucky_block",
+    [9192423027]      = "industrialist",
+    [9312740628]      = "industrialist",
 }
 
 local GAMES_BY_NAME = {
@@ -40,6 +42,7 @@ local GAMES_BY_NAME = {
     ["bee garden"]            = "bee_garden",
     ["bite by night"]         = "bite_by_night",
     ["kick a lucky block"]    = "kick_a_lucky_block",
+    ["industrialist"]         = "industrialist",
 }
 
 ---------- HWID ----------
