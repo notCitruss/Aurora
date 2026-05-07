@@ -1,0 +1,1290 @@
+--// Aurora Private — Bite By Night
+--// AuroraHub Edition (Wave/Potassium only)
+--// v2.1: ESP, Alerts, Utility, Auto — Private Tier
+
+getgenv().AuroraTier = getgenv().AuroraTier or "private"
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local Lighting = game:GetService("Lighting")
+local UIS = game:GetService("UserInputService")
+local Player = Players.LocalPlayer
+
+for _, n in ipairs({"Aurora"}) do
+    pcall(function() local old = Player.PlayerGui:FindFirstChild(n); if old then old:Destroy() end end)
+    pcall(function() local old = game:GetService("CoreGui"):FindFirstChild(n); if old then old:Destroy() end end)
+    pcall(function() if typeof(gethui) == "function" then local old = gethui():FindFirstChild(n); if old then old:Destroy() end end end)
+end
+
+---------- ZOMBIE KILL ----------
+if getgenv().__AURORA_BN_CFG then
+    for k, v in pairs(getgenv().__AURORA_BN_CFG) do
+        if type(v) == "boolean" then getgenv().__AURORA_BN_CFG[k] = false end
+    end
+end
+pcall(function() if getgenv().__AURORA_BN_SPEED then getgenv().__AURORA_BN_SPEED:Disconnect() end end)
+pcall(function() if getgenv().__AURORA_BN_NOCLIP then getgenv().__AURORA_BN_NOCLIP:Disconnect() end end)
+getgenv().__AURORA_BN_SESSION = tick()
+local _mySession = getgenv().__AURORA_BN_SESSION
+local function alive() return getgenv().__AURORA_BN_SESSION == _mySession end
+
+---------- GAME REFS ----------
+local WS = game.Workspace
+local GAME_STATE = WS:FindFirstChild("GAME")
+
+local function getGameMap()
+    local maps = WS:FindFirstChild("MAPS")
+    if not maps then return nil end
+    return maps:FindFirstChild("GAME MAP")
+end
+
+local function getKillerModel()
+    local folder = WS:FindFirstChild("PLAYERS")
+    if not folder then return nil end
+    local killerFolder = folder:FindFirstChild("KILLER")
+    if not killerFolder then return nil end
+    local children = killerFolder:GetChildren()
+    return children[1]
+end
+
+local function getKillerHumanoid(model)
+    if not model then return nil end
+    return model:FindFirstChildOfClass("Humanoid")
+end
+
+
+---------- DIRECT CALLS (Wave/Potassium only) ----------
+local function jitter(base, range)
+    return base + math.random() * (range or base * 0.3)
+end
+
+---------- CONFIG ----------
+local CFG = {
+    KillerESP       = false,
+    GeneratorESP    = false,
+    FuseBoxESP      = false,
+    FusePointESP    = false,
+    TrapESP         = false,
+    EscapeESP       = false,
+    SurvivorESP     = false,
+    CameraESP       = false,
+    KillerAlert     = false,
+    KillerDirection = false,
+    Fullbright      = false,
+    SpeedBoost      = false,
+    AntiAFK         = false,
+    Noclip          = false,
+    InfStamina      = false,
+    AutoEscape      = false,
+    NoBlind         = false,
+    KillerSpeed     = false,
+    AutoRepairGen   = false,
+    UnlockJump      = false,
+    AutoSave        = false,
+}
+
+---------- TOGGLE SAVE/LOAD ----------
+local _cfgFileName = "aurora_cfg_bite_by_night.json"
+local HttpService = game:GetService("HttpService")
+
+local function loadSavedCFG()
+    local saved = nil
+    pcall(function() saved = HttpService:JSONDecode(readfile(_cfgFileName)) end)
+    if not saved then saved = getgenv()["AuroraCFG_bite_by_night"] end
+    if saved and type(saved) == "table" then
+        for k, v in pairs(saved) do
+            if CFG[k] ~= nil and type(CFG[k]) == type(v) then CFG[k] = v end
+        end
+    end
+end
+
+local function saveCFG()
+    pcall(function() writefile(_cfgFileName, HttpService:JSONEncode(CFG)) end)
+    getgenv()["AuroraCFG_bite_by_night"] = CFG
+end
+
+loadSavedCFG()
+
+---------- LIGHTING BACKUP ----------
+local originalAmbient = Lighting.Ambient
+local originalOutdoorAmbient = Lighting.OutdoorAmbient
+local originalClockTime = Lighting.ClockTime
+local originalFogEnd = Lighting.FogEnd
+local originalFogStart = Lighting.FogStart
+local originalFogColor = Lighting.FogColor
+
+---------- ESP CLEANUP REGISTRY ----------
+local espRegistry = {}
+
+local function createESP(target, color, labelText)
+    if not target or not target.Parent then return end
+    if target:FindFirstChild("AuroraESP") then return end
+
+    local hl = Instance.new("Highlight")
+    hl.Name = "AuroraESP"
+    hl.FillColor = color
+    hl.FillTransparency = 0.5
+    hl.OutlineColor = color
+    hl.OutlineTransparency = 0
+    hl.Adornee = target
+    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    hl.Parent = target
+
+    local bb = Instance.new("BillboardGui")
+    bb.Name = "AuroraESPLabel"
+    bb.Size = UDim2.fromOffset(220, 44)
+    bb.StudsOffset = Vector3.new(0, 4, 0)
+    bb.AlwaysOnTop = true
+    bb.MaxDistance = 500
+    bb.Parent = target
+
+    local lbl = Instance.new("TextLabel")
+    lbl.Name = "ESPText"
+    lbl.Size = UDim2.new(1, 0, 1, 0)
+    lbl.BackgroundTransparency = 1
+    lbl.TextColor3 = color
+    lbl.Font = Enum.Font.GothamBold
+    lbl.TextSize = 13
+    lbl.TextStrokeTransparency = 0
+    lbl.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    lbl.Text = labelText
+    lbl.Active = false
+    lbl.Parent = bb
+
+    espRegistry[target] = {hl = hl, bb = bb, lbl = lbl}
+end
+
+local function clearESP(target)
+    if not target then return end
+    local entry = espRegistry[target]
+    if entry then
+        pcall(function() entry.hl:Destroy() end)
+        pcall(function() entry.bb:Destroy() end)
+        espRegistry[target] = nil
+    end
+    pcall(function()
+        local hl = target:FindFirstChild("AuroraESP"); if hl then hl:Destroy() end
+        local bb = target:FindFirstChild("AuroraESPLabel"); if bb then bb:Destroy() end
+    end)
+end
+
+local function updateESPLabel(target, text)
+    local entry = espRegistry[target]
+    if entry and entry.lbl and entry.lbl.Parent then
+        entry.lbl.Text = text
+    end
+end
+
+local function getDistance(model)
+    local char = Player.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return 0 end
+    local root = model:FindFirstChild("HumanoidRootPart")
+        or model:FindFirstChildOfClass("BasePart")
+    if not root then return 0 end
+    return math.floor((hrp.Position - root.Position).Magnitude)
+end
+
+---------- KILLER ALERT UI ----------
+local alertGui = Instance.new("ScreenGui")
+alertGui.Name = "AuroraAlert"
+alertGui.ResetOnSpawn = false
+alertGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+alertGui.DisplayOrder = 100
+do
+    local ok = pcall(function()
+        local _aOk = false; if typeof(gethui) == "function" then _aOk = pcall(function() alertGui.Parent = gethui() end) end; if not _aOk then _aOk = pcall(function() alertGui.Parent = game:GetService("CoreGui") end) end; if not _aOk then alertGui.Parent = Player.PlayerGui end
+    end)
+    if not ok then alertGui.Parent = Player.PlayerGui end
+end
+
+local alertFrame = Instance.new("Frame")
+alertFrame.Name = "AlertFrame"
+alertFrame.Size = UDim2.fromOffset(340, 52)
+alertFrame.AnchorPoint = Vector2.new(0.5, 0)
+alertFrame.Position = UDim2.new(0.5, 0, 0, 18)
+alertFrame.BackgroundColor3 = Color3.fromRGB(180, 20, 20)
+alertFrame.BackgroundTransparency = 0.15
+alertFrame.BorderSizePixel = 0
+alertFrame.Visible = false
+alertFrame.Parent = alertGui
+do
+    local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, 10); c.Parent = alertFrame
+    local s = Instance.new("UIStroke"); s.Color = Color3.fromRGB(255, 60, 60); s.Thickness = 2; s.Transparency = 0.1; s.Parent = alertFrame
+end
+
+local alertLabel = Instance.new("TextLabel")
+alertLabel.Name = "AlertText"
+alertLabel.Size = UDim2.new(1, 0, 1, 0)
+alertLabel.BackgroundTransparency = 1
+alertLabel.Font = Enum.Font.GothamBold
+alertLabel.TextSize = 15
+alertLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+alertLabel.TextXAlignment = Enum.TextXAlignment.Center
+alertLabel.TextYAlignment = Enum.TextYAlignment.Center
+alertLabel.TextStrokeTransparency = 0
+alertLabel.Text = "KILLER NEARBY!"
+alertLabel.Active = false
+alertLabel.Parent = alertFrame
+
+---------- DIRECTION ARROW UI ----------
+local dirGui = Instance.new("ScreenGui")
+dirGui.Name = "AuroraDir"
+dirGui.ResetOnSpawn = false
+dirGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+dirGui.DisplayOrder = 99
+do
+    local ok = pcall(function()
+        local _dOk = false; if typeof(gethui) == "function" then _dOk = pcall(function() dirGui.Parent = gethui() end) end; if not _dOk then _dOk = pcall(function() dirGui.Parent = game:GetService("CoreGui") end) end; if not _dOk then dirGui.Parent = Player.PlayerGui end
+    end)
+    if not ok then dirGui.Parent = Player.PlayerGui end
+end
+
+local dirFrame = Instance.new("Frame")
+dirFrame.Name = "DirFrame"
+dirFrame.Size = UDim2.fromOffset(44, 44)
+dirFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+dirFrame.Position = UDim2.new(0.5, 0, 0.85, 0)
+dirFrame.BackgroundColor3 = Color3.fromRGB(220, 40, 40)
+dirFrame.BackgroundTransparency = 0.3
+dirFrame.BorderSizePixel = 0
+dirFrame.Visible = false
+dirFrame.Parent = dirGui
+do
+    local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, 22); c.Parent = dirFrame
+    local s = Instance.new("UIStroke"); s.Color = Color3.fromRGB(255, 80, 80); s.Thickness = 2; s.Transparency = 0.2; s.Parent = dirFrame
+end
+
+local dirArrow = Instance.new("TextLabel")
+dirArrow.Name = "Arrow"
+dirArrow.Size = UDim2.new(1, 0, 1, 0)
+dirArrow.BackgroundTransparency = 1
+dirArrow.Font = Enum.Font.GothamBold
+dirArrow.TextSize = 22
+dirArrow.TextColor3 = Color3.fromRGB(255, 255, 255)
+dirArrow.TextXAlignment = Enum.TextXAlignment.Center
+dirArrow.TextYAlignment = Enum.TextYAlignment.Center
+dirArrow.Text = "\xE2\x86\x91"
+dirArrow.Active = false
+dirArrow.Parent = dirFrame
+
+---------- NOCLIP LOOP ----------
+local _noclipConn = nil
+local _noclipWasOn = false
+task.spawn(function()
+    while alive() and task.wait(0.2) do
+        if CFG.Noclip and not _noclipWasOn then
+            _noclipWasOn = true
+            _noclipConn = RunService.RenderStepped:Connect(function()
+                pcall(function()
+                    local char = Player.Character
+                    if not char then return end
+                    for _, part in ipairs(char:GetDescendants()) do
+                        if part:IsA("BasePart") then part.CanCollide = false end
+                    end
+                end)
+            end)
+        elseif not CFG.Noclip and _noclipWasOn then
+            _noclipWasOn = false
+            if _noclipConn then _noclipConn:Disconnect(); _noclipConn = nil end
+            pcall(function()
+                local char = Player.Character
+                if char then
+                    for _, part in ipairs(char:GetDescendants()) do
+                        if part:IsA("BasePart") then part.CanCollide = true end
+                    end
+                end
+            end)
+        end
+    end
+end)
+
+---------- SPEED LOOP ----------
+local _speedWasOn = false
+task.spawn(function()
+    while alive() and task.wait(0.3) do
+        pcall(function()
+            local char = Player.Character
+            if not char then return end
+            if CFG.SpeedBoost then
+                char:SetAttribute("WalkSpeed", 24)
+                char:SetAttribute("RunSpeed", 36)
+                _speedWasOn = true
+            elseif _speedWasOn then
+                char:SetAttribute("WalkSpeed", 12)
+                char:SetAttribute("RunSpeed", 24)
+                _speedWasOn = false
+            end
+        end)
+    end
+end)
+
+---------- ANTI-AFK LOOP ----------
+task.spawn(function()
+    while alive() do
+        task.wait(jitter(240, 72.0))
+        if not alive() then break end
+        if CFG.AntiAFK then
+            pcall(function()
+                local hrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+                if hrp then hrp.CFrame = hrp.CFrame * CFrame.new(0, 0.1, 0) end
+            end)
+        end
+    end
+end)
+
+---------- FULLBRIGHT LOOP ----------
+task.spawn(function()
+    while alive() and task.wait(jitter(2, 0.6)) do
+        if CFG.Fullbright then
+            pcall(function()
+                Lighting.Ambient = Color3.fromRGB(255, 255, 255)
+                Lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
+                Lighting.ClockTime = 14
+                Lighting.FogEnd = 100000
+                Lighting.FogStart = 99000
+            end)
+        end
+    end
+end)
+
+---------- INF STAMINA ----------
+local _staminaConn = nil
+local _staminaCharConn = nil
+
+local function hookStamina(char)
+    if _staminaConn then pcall(function() _staminaConn:Disconnect() end) end
+    _staminaConn = char:GetAttributeChangedSignal("Stamina"):Connect(function()
+        if not CFG.InfStamina then return end
+        local max = char:GetAttribute("MaxStamina") or 0
+        local cur = char:GetAttribute("Stamina") or 0
+        if max > 0 and cur < max then
+            char:SetAttribute("Stamina", max)
+        end
+    end)
+end
+
+task.spawn(function()
+    if Player.Character then
+        pcall(function() hookStamina(Player.Character) end)
+    end
+    _staminaCharConn = Player.CharacterAdded:Connect(function(c)
+        task.wait(1)
+        pcall(function() hookStamina(c) end)
+    end)
+end)
+
+task.spawn(function()
+    while alive() and task.wait(0.05) do
+        if CFG.InfStamina then
+            pcall(function()
+                local char = Player.Character
+                if char then
+                    local max = char:GetAttribute("MaxStamina") or 0
+                    if max > 0 then char:SetAttribute("Stamina", max) end
+                end
+            end)
+        end
+    end
+end)
+
+---------- AUTO ESCAPE LOOP ----------
+task.spawn(function()
+    while alive() and task.wait(jitter(0.5, 0.5)) do
+        if CFG.AutoEscape then
+            pcall(function()
+                local canEscape = WS.GAME and WS.GAME:FindFirstChild("CAN_ESCAPE")
+                if canEscape and canEscape.Value == true then
+                    local gameMap = getGameMap()
+                    local escapes = gameMap and gameMap:FindFirstChild("Escapes")
+                    if escapes then
+                        for _, e in ipairs(escapes:GetChildren()) do
+                            local hrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+                            if hrp then
+                                local ok, pos = pcall(function() return e:GetPivot().Position end)
+                                if ok then hrp.CFrame = CFrame.new(pos + Vector3.new(0, 3, 0)) end
+                            end
+                            break
+                        end
+                    end
+                end
+            end)
+        end
+    end
+end)
+
+---------- NO BLINDNESS LOOP ----------
+task.spawn(function()
+    while alive() and task.wait(jitter(0.5, 0.5)) do
+        if CFG.NoBlind then
+            pcall(function()
+                local ui = Player.PlayerGui:FindFirstChild("UI")
+                if ui then
+                    for _, d in ipairs(ui:GetDescendants()) do
+                        if d:IsA("Frame") and (d.Name == "Black" or d.Name:lower():find("blind") or d.Name == "MobileOverlay") then
+                            d.BackgroundTransparency = 1
+                            d.Visible = false
+                        end
+                    end
+                end
+            end)
+        end
+    end
+end)
+
+---------- KILLER SPEED BOOST LOOP ----------
+task.spawn(function()
+    while alive() and task.wait(jitter(0.5, 0.5)) do
+        if CFG.KillerSpeed then
+            pcall(function()
+                local char = Player.Character
+                if char and char:GetAttribute("Team") == "Killer" then
+                    char:SetAttribute("WalkSpeed", 28)
+                    char:SetAttribute("RunSpeed", 35)
+                end
+            end)
+        end
+    end
+end)
+
+---------- AUTO REPAIR GENERATOR ----------
+local _autoGenVIM; pcall(function() _autoGenVIM = Instance.new("VirtualInputManager") end)
+local _autoGenHolding = false
+task.spawn(function()
+    while alive() and task.wait(0.2) do
+        if not CFG.AutoRepairGen then
+            if _autoGenHolding and _autoGenVIM then
+                pcall(function() _autoGenVIM:SendKeyEvent(false, Enum.KeyCode.E, false, game) end)
+                _autoGenHolding = false
+            end
+
+        end
+        pcall(function()
+            local char = Player.Character
+            if not char or char:GetAttribute("Team") ~= "Survivor" then return end
+            local hrp = char:FindFirstChild("HumanoidRootPart")
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if not hrp or not hum then return end
+            local gameMap = workspace:FindFirstChild("MAPS") and workspace.MAPS:FindFirstChild("GAME MAP")
+            local gens = gameMap and gameMap:FindFirstChild("Generators")
+            if not gens then return end
+
+            local bestPoint, bestDist = nil, math.huge
+            for _, gen in ipairs(gens:GetChildren()) do
+                for _, d in ipairs(gen:GetDescendants()) do
+                    if d:IsA("ProximityPrompt") and d.ActionText == "Fix" and d.Enabled then
+                        local pointPart = d.Parent
+                        if pointPart and pointPart:IsA("BasePart") then
+                            local dist = (pointPart.Position - hrp.Position).Magnitude
+                            if dist < bestDist then bestDist = dist; bestPoint = pointPart end
+                        end
+                    end
+                end
+            end
+
+            if not bestPoint then return end
+
+            if not _autoGenVIM then return end
+
+            if bestDist > 4 then
+                hum:MoveTo(bestPoint.Position)
+                if _autoGenHolding then
+                    _autoGenVIM:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+                    _autoGenHolding = false
+                end
+            else
+                if not _autoGenHolding then
+                    _autoGenVIM:SendKeyEvent(true, Enum.KeyCode.E, false, game)
+                    _autoGenHolding = true
+                end
+            end
+        end)
+    end
+end)
+
+---------- UNLOCK JUMP ----------
+task.spawn(function()
+    while alive() and task.wait(0.1) do
+        if CFG.UnlockJump then
+            pcall(function()
+                local char = Player.Character
+                local hum = char and char:FindFirstChildOfClass("Humanoid")
+                if hum then
+                    hum.JumpHeight = 7.2
+                    hum.JumpPower = 50
+                end
+            end)
+        end
+    end
+end)
+
+---------- KILLER ALERT + DIRECTION LOOP ----------
+local alertFlash = false
+task.spawn(function()
+    while alive() and task.wait(jitter(0.5, 0.5)) do
+        pcall(function()
+            if not (CFG.KillerAlert or CFG.KillerDirection) then
+                alertFrame.Visible = false
+                dirFrame.Visible = false
+                return
+            end
+            local char = Player.Character
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            if not hrp then
+                alertFrame.Visible = false
+                dirFrame.Visible = false
+                return
+            end
+
+            local killerModel = getKillerModel()
+            if not killerModel then
+                alertFrame.Visible = false
+                dirFrame.Visible = false
+                return
+            end
+
+            local killerRoot = killerModel:FindFirstChild("HumanoidRootPart")
+                or killerModel:FindFirstChildOfClass("BasePart")
+            if not killerRoot then
+                alertFrame.Visible = false
+                dirFrame.Visible = false
+                return
+            end
+
+            local dist = math.floor((hrp.Position - killerRoot.Position).Magnitude)
+
+            if CFG.KillerAlert then
+                if dist <= 60 then
+                    alertFlash = not alertFlash
+                    alertFrame.Visible = true
+                    alertLabel.Text = "KILLER NEARBY!  " .. dist .. "m away"
+                    alertFrame.BackgroundTransparency = alertFlash and 0.1 or 0.35
+                else
+                    alertFrame.Visible = false
+                end
+            else
+                alertFrame.Visible = false
+            end
+
+            if CFG.KillerDirection then
+                dirFrame.Visible = true
+                local cam = WS.CurrentCamera
+                if cam then
+                    local screenPos, onScreen = cam:WorldToScreenPoint(killerRoot.Position)
+                    local center = cam.ViewportSize / 2
+                    local dx = screenPos.X - center.X
+                    local dy = screenPos.Y - center.Y
+                    local angle = math.deg(math.atan2(dx, -dy))
+                    dirFrame.Rotation = angle
+                end
+            else
+                dirFrame.Visible = false
+            end
+        end)
+    end
+end)
+
+---------- ESP UPDATE LOOP ----------
+task.spawn(function()
+    while alive() and task.wait(0.3) do
+        pcall(function()
+            local map = getGameMap()
+
+            local killerModel = getKillerModel()
+            if CFG.KillerESP and killerModel then
+                local hum = getKillerHumanoid(killerModel)
+                local hp = hum and math.floor(hum.Health) or 0
+                local maxHp = hum and math.floor(hum.MaxHealth) or 1750
+                local dist = getDistance(killerModel)
+                local killerName = ""
+                for _, folder in ipairs(WS.PLAYERS:GetChildren()) do
+                    if folder.Name == "KILLER" then
+                        for _, mdl in ipairs(folder:GetChildren()) do
+                            killerName = mdl.Name
+                        end
+                    end
+                end
+                local lbl = (killerName ~= "" and killerName or "Killer") ..
+                    "  |  HP " .. hp .. "/" .. maxHp ..
+                    "  |  " .. dist .. "m"
+                createESP(killerModel, Color3.fromRGB(220, 40, 40), lbl)
+                updateESPLabel(killerModel, lbl)
+            elseif not CFG.KillerESP and killerModel then
+                clearESP(killerModel)
+            end
+
+            if map then
+                local genFolder = map:FindFirstChild("Generators")
+                if genFolder then
+                    for _, gen in ipairs(genFolder:GetChildren()) do
+                        if CFG.GeneratorESP then
+                            local dist = getDistance(gen)
+                            local lbl = "Generator  |  " .. dist .. "m"
+                            createESP(gen, Color3.fromRGB(60, 200, 80), lbl)
+                            updateESPLabel(gen, lbl)
+                        else
+                            clearESP(gen)
+                        end
+                    end
+                end
+
+                local fuseFolder = map:FindFirstChild("FuseBoxes")
+                if fuseFolder then
+                    for _, fuse in ipairs(fuseFolder:GetChildren()) do
+                        if CFG.FuseBoxESP then
+                            local dist = getDistance(fuse)
+                            local lbl = "Fuse Box  |  " .. dist .. "m"
+                            createESP(fuse, Color3.fromRGB(240, 200, 30), lbl)
+                            updateESPLabel(fuse, lbl)
+                        else
+                            clearESP(fuse)
+                        end
+                    end
+                end
+
+                local escFolder = map:FindFirstChild("Escapes")
+                if escFolder then
+                    for _, esc in ipairs(escFolder:GetChildren()) do
+                        if CFG.EscapeESP then
+                            local dist = getDistance(esc)
+                            local lbl = "EXIT  |  " .. dist .. "m"
+                            createESP(esc, Color3.fromRGB(30, 200, 220), lbl)
+                            updateESPLabel(esc, lbl)
+                        else
+                            clearESP(esc)
+                        end
+                    end
+                end
+
+                local camFolder = map:FindFirstChild("Cameras")
+                if camFolder then
+                    for _, cam in ipairs(camFolder:GetChildren()) do
+                        if CFG.CameraESP then
+                            local dist = getDistance(cam)
+                            local lbl = "Camera  |  " .. dist .. "m"
+                            createESP(cam, Color3.fromRGB(240, 130, 30), lbl)
+                            updateESPLabel(cam, lbl)
+                        else
+                            clearESP(cam)
+                        end
+                    end
+                end
+            end
+
+            local ignoreFolder = WS:FindFirstChild("IGNORE")
+            if ignoreFolder then
+                for _, obj in ipairs(ignoreFolder:GetChildren()) do
+                    if obj.Name == "FusePoint" and obj:IsA("BasePart") then
+                        if CFG.FusePointESP then
+                            local dist = math.floor(
+                                (Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+                                    and (Player.Character.HumanoidRootPart.Position - obj.Position).Magnitude) or 0
+                            )
+                            createESP(obj, Color3.fromRGB(200, 80, 200), "Battery  |  " .. dist .. "m")
+                            updateESPLabel(obj, "Fuse Point  |  " .. dist .. "m")
+                        else
+                            clearESP(obj)
+                        end
+                    elseif obj.Name == "Trap" and obj:IsA("Model") then
+                        if CFG.TrapESP then
+                            local dist = getDistance(obj)
+                            createESP(obj, Color3.fromRGB(255, 50, 50), "TRAP!  |  " .. dist .. "m")
+                            updateESPLabel(obj, "TRAP!  |  " .. dist .. "m")
+                        else
+                            clearESP(obj)
+                        end
+                    end
+                end
+            end
+
+            local playersFolder = WS:FindFirstChild("PLAYERS")
+            if playersFolder then
+                local aliveFolder = playersFolder:FindFirstChild("ALIVE")
+                if aliveFolder then
+                    for _, surv in ipairs(aliveFolder:GetChildren()) do
+                        if CFG.SurvivorESP then
+                            local hum = surv:FindFirstChildOfClass("Humanoid")
+                            local hp = hum and math.floor(hum.Health) or 100
+                            local dist = getDistance(surv)
+                            local lbl = surv.Name .. "  |  " .. hp .. "HP  |  " .. dist .. "m"
+                            createESP(surv, Color3.fromRGB(60, 120, 255), lbl)
+                            updateESPLabel(surv, lbl)
+                        else
+                            clearESP(surv)
+                        end
+                    end
+                end
+            end
+        end)
+    end
+end)
+
+-- ================================================================
+-- V2 SIDEBAR + DUAL PANEL UI
+-- ================================================================
+
+---------- PALETTE ----------
+local C = {
+    bg         = Color3.fromRGB(20, 20, 20),
+    sidebar    = Color3.fromRGB(25, 25, 25),
+    panel      = Color3.fromRGB(30, 30, 30),
+    card       = Color3.fromRGB(35, 35, 35),
+    accent   = Color3.fromRGB(252, 110, 142),
+    accentDim = Color3.fromRGB(180, 80, 110),
+    text       = Color3.fromRGB(255, 255, 255),
+    dim        = Color3.fromRGB(150, 150, 150),
+    green      = Color3.fromRGB(0, 200, 100),
+    red        = Color3.fromRGB(255, 80, 80),
+    trackOff   = Color3.fromRGB(60, 60, 60),
+    knobOff    = Color3.fromRGB(90, 90, 90),
+    stroke     = Color3.fromRGB(80, 80, 80),
+    sliderBg   = Color3.fromRGB(45, 45, 45),
+}
+
+---------- UI HELPERS ----------
+local function create(class, props, parent)
+    local inst = Instance.new(class)
+    for k, v in pairs(props) do inst[k] = v end
+    if parent then inst.Parent = parent end
+    return inst
+end
+local function corner(p, r) return create("UICorner", { CornerRadius = UDim.new(0, r) }, p) end
+local function stroke(p, col, th, tr)
+    return create("UIStroke", { Color = col, Thickness = th or 1, Transparency = tr or 0.3, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, p)
+end
+local function lbl(parent, props)
+    local d = { BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextColor3 = C.text, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Center, BorderSizePixel = 0, Active = false }
+    for k, v in pairs(d) do if props[k] == nil then props[k] = v end end
+    return create("TextLabel", props, parent)
+end
+local function connectClick(frame, cb)
+    frame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then cb() end
+    end)
+end
+
+---------- SCREEN GUI ----------
+local gui = create("ScreenGui", {
+    Name = "Aurora", ResetOnSpawn = false, ZIndexBehavior = Enum.ZIndexBehavior.Sibling, DisplayOrder = 50, IgnoreGuiInset = true,
+})
+gui.Parent = gethui()
+
+---------- MOBILE DETECTION + SCALING ----------
+local _viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1920, 1080)
+local _isMobile = UIS.TouchEnabled and (_viewport.X < 1200)
+local _scale = _isMobile and math.clamp(_viewport.X / 700, 0.55, 0.85) or 1
+
+---------- LAYOUT ----------
+local SIDEBAR_W  = 110
+local TOTAL_W    = 660
+local TOTAL_H    = 455
+local TOP_H      = 40
+local GAP        = 6
+local CONTENT_X  = SIDEBAR_W + GAP
+local CONTENT_Y  = TOP_H + 4
+local CONTENT_H  = TOTAL_H - CONTENT_Y - 6
+local AVAIL_W    = TOTAL_W - CONTENT_X - 6
+local LEFT_PW    = math.floor(AVAIL_W * 0.58)
+local RIGHT_PW   = AVAIL_W - LEFT_PW - GAP
+
+---------- MAIN ----------
+local main = create("Frame", {
+    Name = "Main", Size = UDim2.fromOffset(TOTAL_W, TOTAL_H),
+    Position = _isMobile and UDim2.new(0.5, -TOTAL_W * _scale / 2, 0, 40) or UDim2.fromOffset(16, 60),
+    BackgroundColor3 = C.bg, BackgroundTransparency = 0, BorderSizePixel = 0, Active = true, ClipsDescendants = true,
+}, gui)
+corner(main, 12)
+stroke(main, C.stroke, 1, 0.2)
+if _scale ~= 1 then create("UIScale", { Scale = _scale }, main) end
+
+---------- TOP BAR ----------
+local topBar = create("Frame", {
+    Name = "TopBar", Size = UDim2.new(1, 0, 0, TOP_H), Position = UDim2.fromOffset(0, 0),
+    BackgroundColor3 = C.sidebar, BackgroundTransparency = 0, BorderSizePixel = 0, ZIndex = 5,
+}, main)
+corner(topBar, 12)
+create("Frame", {
+    Name = "TopDivider", Size = UDim2.new(1, 0, 0, 1), Position = UDim2.new(0, 0, 1, -1),
+    BackgroundColor3 = C.stroke, BackgroundTransparency = 0.3, BorderSizePixel = 0, ZIndex = 5,
+}, topBar)
+
+create("ImageLabel", {
+    Name = "Logo", Size = UDim2.fromOffset(28, 28), Position = UDim2.fromOffset(10, 6),
+    BackgroundTransparency = 1, Image = "rbxassetid://77299357494181", ScaleType = Enum.ScaleType.Fit, ZIndex = 6,
+}, topBar)
+
+lbl(topBar, {
+    Name = "Title", Size = UDim2.new(0, 80, 1, 0), Position = UDim2.fromOffset(44, 0),
+    Text = "Aurora", TextSize = 14, Font = Enum.Font.GothamBlack, TextColor3 = C.accent, ZIndex = 6,
+})
+
+local gameName = "Bite By Night"
+pcall(function() gameName = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name end)
+lbl(topBar, {
+    Name = "Game", Size = UDim2.new(0, 200, 1, 0), Position = UDim2.new(1, -310, 0, 0),
+    Text = gameName, TextSize = 11, Font = Enum.Font.Gotham, TextColor3 = C.dim,
+    TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 6,
+})
+
+local minBtn = create("Frame", {
+    Name = "Min", Size = UDim2.fromOffset(30, 30), Position = UDim2.new(1, -72, 0.5, -15),
+    BackgroundTransparency = 1, Active = true, ZIndex = 6,
+}, topBar)
+lbl(minBtn, { Size = UDim2.new(1,0,1,0), Text = "\xE2\x80\x93", TextSize = 22, TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 7 })
+
+local closeBtn = create("Frame", {
+    Name = "Close", Size = UDim2.fromOffset(30, 30), Position = UDim2.new(1, -38, 0.5, -15),
+    BackgroundTransparency = 1, Active = true, ZIndex = 6,
+}, topBar)
+lbl(closeBtn, { Size = UDim2.new(1,0,1,0), Text = "x", TextSize = 16, TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 7 })
+
+-- Drag handle
+local dragHandle = create("Frame", {
+    Name = "DragHandle", Size = UDim2.new(1, -80, 1, 0),
+    BackgroundTransparency = 1, Active = true, ZIndex = 5,
+}, topBar)
+do
+    local dragging, dragStart, startPos = false, nil, nil
+    dragHandle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true; dragStart = input.Position; startPos = main.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then dragging = false end
+            end)
+        end
+    end)
+    dragHandle.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement
+        or input.UserInputType == Enum.UserInputType.Touch) then
+            local d = input.Position - dragStart
+            main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
+        end
+    end)
+end
+
+---------- MINIMIZE FLOWER ----------
+local flower = create("Frame", {
+    Name = "Flower", Size = UDim2.fromOffset(44, 44), Position = UDim2.fromOffset(16, 60),
+    BackgroundColor3 = C.accent, BackgroundTransparency = 0.3,
+    BorderSizePixel = 0, Visible = false, Active = true,
+}, gui)
+corner(flower, 22)
+stroke(flower, C.accent, 2, 0.2)
+create("ImageLabel", {
+    Size = UDim2.new(0.7, 0, 0.7, 0), Position = UDim2.new(0.15, 0, 0.15, 0),
+    BackgroundTransparency = 1, Image = "rbxassetid://77299357494181",
+    ScaleType = Enum.ScaleType.Fit,
+}, flower)
+
+connectClick(flower, function()
+    flower.Visible = false
+    main.Position = flower.Position
+end)
+
+connectClick(minBtn, function()
+    flower.Position = main.Position
+    main.Position = UDim2.fromOffset(-9999, -9999)
+    flower.Visible = true
+end)
+connectClick(closeBtn, function() gui:Destroy() end)
+
+---------- SIDEBAR ----------
+local sidebar = create("Frame", {
+    Name = "Sidebar", Size = UDim2.new(0, SIDEBAR_W, 1, -TOP_H),
+    Position = UDim2.fromOffset(0, TOP_H), BackgroundColor3 = C.sidebar, BackgroundTransparency = 0, BorderSizePixel = 0,
+    ClipsDescendants = true,
+}, main)
+corner(sidebar, 12)
+
+create("Frame", {
+    Name = "Divider", Size = UDim2.new(0, 1, 1, -8), Position = UDim2.new(1, 0, 0, 4),
+    BackgroundColor3 = C.stroke, BackgroundTransparency = 0.4, BorderSizePixel = 0,
+}, sidebar)
+
+local TAB_DEFS = {
+    { name = "ESP",     color = Color3.fromRGB(100, 180, 255) },
+    { name = "Alerts",  color = Color3.fromRGB(255, 100, 100) },
+    { name = "Utility", color = Color3.fromRGB(80, 200, 120) },
+    { name = "Auto",    color = Color3.fromRGB(255, 200, 80) },
+}
+local CONFIG_TAB = { name = "Config", color = Color3.fromRGB(130, 130, 155) }
+
+local tabBtns = {}
+local leftContainers = {}
+local rightContainers = {}
+
+local tabList = create("Frame", {
+    Name = "TabList", Size = UDim2.new(1, -8, 0, #TAB_DEFS * 40 + 4),
+    Position = UDim2.fromOffset(4, 8), BackgroundTransparency = 1, BorderSizePixel = 0,
+}, sidebar)
+create("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 4) }, tabList)
+
+local function makeTabBtn(def, idx, parent)
+    local btn = create("Frame", {
+        Name = "Tab_" .. def.name, Size = UDim2.new(1, 0, 0, 36),
+        BackgroundColor3 = C.card, BackgroundTransparency = 0.5, BorderSizePixel = 0, Active = true, LayoutOrder = idx,
+    }, parent)
+    corner(btn, 8)
+    local indicator = create("Frame", {
+        Name = "Indicator", Size = UDim2.new(0, 3, 0, 22), Position = UDim2.fromOffset(0, 7),
+        BackgroundColor3 = def.color or C.accent, BackgroundTransparency = 1, BorderSizePixel = 0,
+    }, btn)
+    corner(indicator, 2)
+    lbl(btn, {
+        Name = "Label", Size = UDim2.new(1, 0, 1, 0), Position = UDim2.fromOffset(0, 0),
+        Text = def.name, TextSize = 13, Font = Enum.Font.GothamBold, TextColor3 = C.dim,
+        TextXAlignment = Enum.TextXAlignment.Center,
+    })
+    return btn, indicator
+end
+
+local allTabs = {}
+for i, def in ipairs(TAB_DEFS) do
+    local btn, ind = makeTabBtn(def, i, tabList)
+    allTabs[i] = { btn = btn, indicator = ind, name = def.name }
+end
+
+local configBtn, configInd = makeTabBtn(CONFIG_TAB, 99, nil)
+configBtn.Parent = sidebar
+configBtn.Position = UDim2.new(0, 4, 1, -44)
+configBtn.Size = UDim2.new(1, -8, 0, 36)
+allTabs[#TAB_DEFS + 1] = { btn = configBtn, indicator = configInd, name = "Config" }
+
+---------- CONTENT PANELS ----------
+local function makePanel(name, xPos, width)
+    local p = create("ScrollingFrame", {
+        Name = name, Size = UDim2.new(0, width, 0, CONTENT_H),
+        Position = UDim2.fromOffset(xPos, CONTENT_Y),
+        BackgroundColor3 = C.panel, BackgroundTransparency = 0.10, BorderSizePixel = 0,
+        ScrollBarThickness = 3, ScrollBarImageColor3 = C.accent, ScrollBarImageTransparency = 0.3,
+        CanvasSize = UDim2.new(0, 0, 0, 0), ScrollingDirection = Enum.ScrollingDirection.Y,
+        TopImage = "rbxasset://textures/ui/Scroll/scroll-middle.png",
+        BottomImage = "rbxasset://textures/ui/Scroll/scroll-middle.png",
+        MidImage = "rbxasset://textures/ui/Scroll/scroll-middle.png",
+    }, main)
+    corner(p, 10)
+    stroke(p, C.stroke, 1, 0.4)
+    create("UIPadding", { PaddingTop = UDim.new(0,8), PaddingLeft = UDim.new(0,10), PaddingRight = UDim.new(0,10), PaddingBottom = UDim.new(0,10) }, p)
+    local layout = create("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 4) }, p)
+    layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        p.CanvasSize = UDim2.fromOffset(0, layout.AbsoluteContentSize.Y + 20)
+    end)
+    return p
+end
+
+local TOTAL_TABS = #TAB_DEFS + 1
+for i = 1, TOTAL_TABS do
+    local tabName = (i <= #TAB_DEFS) and TAB_DEFS[i].name or "Config"
+    local lp = makePanel("L_" .. tabName, CONTENT_X, LEFT_PW)
+    local rp = makePanel("R_" .. tabName, CONTENT_X + LEFT_PW + GAP, RIGHT_PW)
+    lp.Visible = (i == 1)
+    rp.Visible = (i == 1)
+    leftContainers[i] = lp
+    rightContainers[i] = rp
+end
+
+---------- SWITCH TAB ----------
+local activeTabIdx = 1
+
+local function switchTab(idx)
+    activeTabIdx = idx
+    for i, t in ipairs(allTabs) do
+        local active = (i == idx)
+        t.btn.BackgroundTransparency = active and 0.15 or 0.5
+        t.indicator.BackgroundTransparency = active and 0 or 1
+        local lblInst = t.btn:FindFirstChild("Label")
+        if lblInst then lblInst.TextColor3 = active and C.text or C.dim end
+    end
+    for i = 1, TOTAL_TABS do
+        leftContainers[i].Visible = (i == idx)
+        rightContainers[i].Visible = (i == idx)
+    end
+end
+
+for i, t in ipairs(allTabs) do
+    local ci = i
+    connectClick(t.btn, function() switchTab(ci) end)
+end
+
+---------- COMPONENT BUILDERS ----------
+local _order = {}
+local _curLeft, _curRight = nil, nil
+
+local function setPanel(leftP, rightP)
+    _curLeft = leftP; _curRight = rightP
+    _order[leftP] = 0; _order[rightP] = 0
+end
+
+local function nextOrder(panel)
+    _order[panel] = (_order[panel] or 0) + 1
+    return _order[panel]
+end
+
+local function sectionHeader(title, panel)
+    panel = panel or _curLeft
+    local o = nextOrder(panel)
+    create("Frame", { Size = UDim2.new(1,0,0,2), BackgroundTransparency = 1, LayoutOrder = o }, panel)
+    o = nextOrder(panel)
+    local row = create("Frame", { Size = UDim2.new(1,0,0,24), BackgroundTransparency = 1, LayoutOrder = o, BorderSizePixel = 0 }, panel)
+    create("Frame", { Size = UDim2.fromOffset(4, 4), Position = UDim2.fromOffset(0, 10), BackgroundColor3 = C.accent, BorderSizePixel = 0 }, row)
+    corner(row:FindFirstChild("Frame"), 2)
+    lbl(row, { Size = UDim2.new(1,-12,1,0), Position = UDim2.fromOffset(12, 0), Text = string.upper(title), TextSize = 11, Font = Enum.Font.GothamBlack, TextColor3 = C.accent })
+end
+
+local function toggleRow(name, cfgKey, panel, callback)
+    panel = panel or _curLeft
+    local o = nextOrder(panel)
+    local row = create("Frame", {
+        Name = "T_" .. name, Size = UDim2.new(1, 0, 0, 34), BackgroundColor3 = C.card,
+        BackgroundTransparency = 0, BorderSizePixel = 0, LayoutOrder = o, Active = true,
+    }, panel)
+    corner(row, 8)
+    lbl(row, { Size = UDim2.new(1,-60,1,0), Position = UDim2.fromOffset(10,0), Text = name, TextSize = 13, Font = Enum.Font.Gotham })
+    local track = create("Frame", {
+        Name = "Track", Size = UDim2.fromOffset(38, 20), Position = UDim2.new(1,-48, 0.5,-10),
+        BackgroundColor3 = CFG[cfgKey] and C.accent or C.trackOff, BorderSizePixel = 0,
+    }, row)
+    corner(track, 10)
+    local knob = create("Frame", {
+        Name = "Knob", Size = UDim2.fromOffset(16, 16),
+        Position = CFG[cfgKey] and UDim2.new(1,-18, 0.5,-8) or UDim2.fromOffset(2, 2),
+        BackgroundColor3 = CFG[cfgKey] and Color3.new(1,1,1) or C.knobOff, BorderSizePixel = 0,
+    }, track)
+    corner(knob, 8)
+    local function updateVisual()
+        local on = CFG[cfgKey]
+        TweenService:Create(track, TweenInfo.new(0.15), { BackgroundColor3 = on and C.accent or C.trackOff }):Play()
+        TweenService:Create(knob, TweenInfo.new(0.15), {
+            Position = on and UDim2.new(1,-18, 0.5,-8) or UDim2.fromOffset(2, 2),
+            BackgroundColor3 = on and Color3.new(1,1,1) or C.knobOff,
+        }):Play()
+    end
+    connectClick(row, function()
+        CFG[cfgKey] = not CFG[cfgKey]
+        updateVisual()
+        if CFG.AutoSave then saveCFG() end
+        if callback then callback(CFG[cfgKey]) end
+    end)
+    return row, updateVisual
+end
+
+local function infoRow(name, initialValue, panel)
+    panel = panel or _curRight
+    local o = nextOrder(panel)
+    local row = create("Frame", {
+        Size = UDim2.new(1,0,0,22), BackgroundTransparency = 1, LayoutOrder = o, BorderSizePixel = 0,
+    }, panel)
+    lbl(row, { Size = UDim2.new(0.5,0,1,0), Position = UDim2.fromOffset(4,0), Text = name, TextSize = 10, Font = Enum.Font.GothamSemibold, TextColor3 = C.dim })
+    local val = lbl(row, {
+        Name = "Val", Size = UDim2.new(0.5,-4,1,0), Position = UDim2.new(0.5,0,0,0),
+        Text = initialValue or "---", TextSize = 10, Font = Enum.Font.GothamBold,
+        TextColor3 = C.text, TextXAlignment = Enum.TextXAlignment.Right,
+    })
+    return val
+end
+
+local function actionButton(name, color, panel, callback)
+    panel = panel or _curLeft
+    local o = nextOrder(panel)
+    local btn = create("Frame", {
+        Name = "A_" .. name, Size = UDim2.new(1, 0, 0, 32), BackgroundColor3 = color or C.accent,
+        BackgroundTransparency = 0, BorderSizePixel = 0, LayoutOrder = o, Active = true,
+    }, panel)
+    corner(btn, 8)
+    local btnLabel = lbl(btn, {
+        Size = UDim2.new(1,0,1,0), Text = name, TextSize = 11, Font = Enum.Font.GothamBold,
+        TextXAlignment = Enum.TextXAlignment.Center, TextColor3 = C.text,
+    })
+    connectClick(btn, function()
+        if callback then callback() end
+        local orig = btnLabel.Text
+        btnLabel.Text = name .. " ..."
+        btnLabel.TextColor3 = C.green
+        task.delay(1.5, function() btnLabel.Text = orig; btnLabel.TextColor3 = C.text end)
+    end)
+    return btn
+end
+
+---------- TAB 1: ESP ----------
+setPanel(leftContainers[1], rightContainers[1])
+
+sectionHeader("Killer", _curLeft)
+toggleRow("Killer ESP", "KillerESP", _curLeft)
+toggleRow("Survivor ESP", "SurvivorESP", _curLeft)
+
+sectionHeader("Objects", _curLeft)
+toggleRow("Generator ESP", "GeneratorESP", _curLeft)
+toggleRow("Fuse Box ESP", "FuseBoxESP", _curLeft)
+toggleRow("Fuse Point ESP", "FusePointESP", _curLeft)
+toggleRow("Camera ESP", "CameraESP", _curLeft)
+toggleRow("Trap ESP", "TrapESP", _curLeft)
+toggleRow("Escape ESP", "EscapeESP", _curLeft)
+
+sectionHeader("ESP Info", _curRight)
+local _infoKillerDist = infoRow("Killer Dist", "---", _curRight)
+local _infoKillerHP = infoRow("Killer HP", "---", _curRight)
+local _infoTeam = infoRow("Your Team", "---", _curRight)
+
+sectionHeader("Game State", _curRight)
+local _infoGameState = infoRow("Game", "---", _curRight)
+local _infoCanEscape = infoRow("Can Escape", "---", _curRight)
+local _infoSurvivors = infoRow("Alive", "---", _curRight)
+
+---------- TAB 2: ALERTS ----------
+setPanel(leftContainers[2], rightContainers[2])
+
+sectionHeader("Killer Awareness", _curLeft)
+toggleRow("Killer Alert", "KillerAlert", _curLeft)
+toggleRow("Killer Direction", "KillerDirection", _curLeft)
+
+sectionHeader("Vision", _curLeft)
+toggleRow("Fullbright", "Fullbright", _curLeft, function(on)
+    if not on then
+        pcall(function()
+            Lighting.Ambient = originalAmbient
+            Lighting.OutdoorAmbient = originalOutdoorAmbient
+            Lighting.ClockTime = originalClockTime
+            Lighting.FogEnd = originalFogEnd
+            Lighting.FogStart = originalFogStart
+        end)
+    end
+end)
+toggleRow("No Blindness", "NoBlind", _curLeft)
+
+sectionHeader("Alert Info", _curRight)
+local _infoAlertStatus = infoRow("Alert", "Off", _curRight)
+local _infoKillerNearby = infoRow("Killer Nearby", "No", _curRight)
+
+---------- TAB 3: UTILITY ----------
+setPanel(leftContainers[3], rightContainers[3])
+
+sectionHeader("Movement", _curLeft)
+toggleRow("Speed Boost", "SpeedBoost", _curLeft)
+toggleRow("Noclip", "Noclip", _curLeft)
+toggleRow("Unlock Jump", "UnlockJump", _curLeft)
+toggleRow("Inf Stamina", "InfStamina", _curLeft)
+
+sectionHeader("Safety", _curLeft)
+toggleRow("Anti-AFK", "AntiAFK", _curLeft)
+
+sectionHeader("Killer Only", _curLeft)
+toggleRow("Killer Speed", "KillerSpeed", _curLeft)
+
+sectionHeader("Player Info", _curRight)
+local _infoHealth = infoRow("Health", "---", _curRight)
+local _infoStamina = infoRow("Stamina", "---", _curRight)
+local _infoRuntime = infoRow("Runtime", "0m", _curRight)
+local _infoStatus = infoRow("Status", "Idle", _curRight)
+
+---------- TAB 4: AUTO ----------
+setPanel(leftContainers[4], rightContainers[4])
+
+sectionHeader("Automation", _curLeft)
+toggleRow("Auto Repair Gen", "AutoRepairGen", _curLeft)
+toggleRow("Auto Escape", "AutoEscape", _curLeft)
+
+sectionHeader("Auto Info", _curRight)
+local _infoAutoStatus = infoRow("Auto Status", "Idle", _curRight)
+
+---------- TAB 5: CONFIG ----------
+setPanel(leftContainers[5], rightContainers[5])
+
+sectionHeader("Config Management", _curLeft)
+toggleRow("Auto-Save", "AutoSave", _curLeft)
+
+actionButton("Save Config", C.green, _curLeft, function() saveCFG() end)
+actionButton("Load Config", C.accent, _curLeft, function() loadSavedCFG() end)
+actionButton("Reset All", C.red, _curLeft, function()
+    for k, v in pairs(CFG) do
+        if type(v) == "boolean" then CFG[k] = false end
+    end
+    saveCFG()
+end)
+
+sectionHeader("Config Info", _curRight)
+infoRow("File", _cfgFileName, _curRight)
+
+sectionHeader("Active Features", _curRight)
+local _cfgActiveList = lbl(rightContainers[5], {
+    Name = "ActiveList", Size = UDim2.new(1, 0, 0, 120),
+    Text = "None", TextSize = 10, Font = Enum.Font.Gotham, TextColor3 = C.dim,
+    TextYAlignment = Enum.TextYAlignment.Top, TextWrapped = true,
+    LayoutOrder = nextOrder(rightContainers[5]),
+})
+
+---------- STATUS UPDATE LOOP ----------
+task.spawn(function()
+    local _sessionStart = tick()
+    while alive() and task.wait(jitter(1, 0.5)) do
+        pcall(function()
+            local char = Player.Character
+            if char then
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                if hum then _infoHealth.Text = math.floor(hum.Health) .. "/" .. math.floor(hum.MaxHealth) end
+                local stam = char:GetAttribute("Stamina")
+                local maxStam = char:GetAttribute("MaxStamina")
+                if stam and maxStam then _infoStamina.Text = math.floor(stam) .. "/" .. math.floor(maxStam) end
+                local team = char:GetAttribute("Team")
+                _infoTeam.Text = team or "---"
+            end
+
+            local killerModel = getKillerModel()
+            if killerModel then
+                local dist = getDistance(killerModel)
+                _infoKillerDist.Text = dist .. "m"
+                local killerHum = getKillerHumanoid(killerModel)
+                if killerHum then
+                    _infoKillerHP.Text = math.floor(killerHum.Health) .. "/" .. math.floor(killerHum.MaxHealth)
+                end
+                _infoKillerNearby.Text = (dist <= 60) and "YES" or "No"
+            else
+                _infoKillerDist.Text = "---"
+                _infoKillerHP.Text = "---"
+                _infoKillerNearby.Text = "---"
+            end
+
+            pcall(function()
+                if GAME_STATE then
+                    local phase = GAME_STATE:FindFirstChild("Phase")
+                    _infoGameState.Text = phase and tostring(phase.Value) or "---"
+                    local canEsc = GAME_STATE:FindFirstChild("CAN_ESCAPE")
+                    _infoCanEscape.Text = canEsc and tostring(canEsc.Value) or "---"
+                end
+            end)
+
+            pcall(function()
+                local playersFolder = WS:FindFirstChild("PLAYERS")
+                local aliveFolder = playersFolder and playersFolder:FindFirstChild("ALIVE")
+                _infoSurvivors.Text = aliveFolder and tostring(#aliveFolder:GetChildren()) or "---"
+            end)
+
+            _infoAlertStatus.Text = CFG.KillerAlert and "ON" or "Off"
+
+            local elapsed = tick() - _sessionStart
+            local mins = math.floor(elapsed / 60)
+            local hrs = math.floor(mins / 60)
+            _infoRuntime.Text = hrs > 0 and string.format("%dh %dm", hrs, mins % 60) or string.format("%dm", mins)
+
+            local anyOn = false
+            for k, v in pairs(CFG) do if type(v) == "boolean" and v then anyOn = true; break end end
+            _infoStatus.Text = anyOn and "Running" or "Idle"
+
+            if CFG.AutoRepairGen then _infoAutoStatus.Text = "Repairing"
+            elseif CFG.AutoEscape then _infoAutoStatus.Text = "Escaping"
+            else _infoAutoStatus.Text = "Idle" end
+
+            local active = {}
+            for k, v in pairs(CFG) do
+                if type(v) == "boolean" and v and k ~= "AutoSave" then table.insert(active, k) end
+            end
+            _cfgActiveList.Text = #active > 0 and table.concat(active, "\n") or "None"
+            _cfgActiveList.Size = UDim2.new(1, 0, 0, math.max(60, #active * 14 + 10))
+        end)
+    end
+end)
+
+switchTab(1)
+
+print("[Aurora v3] Bite By Night loaded")
